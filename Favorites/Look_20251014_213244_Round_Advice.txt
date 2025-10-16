@@ -1,0 +1,28 @@
+--- FACEFIT FAVORITE LOOK ---
+Date Saved: Tue Oct 14 21:32:44 2025
+Source: Upload
+Detected Face Shape: Round
+Gender Profile: Male
+
+--- Applied Accessories ---
+- glasses2.png
+  > Scale: 1.00, X-Offset: None, Y-Offset: None, Rotation Offset: 0.0 deg
+- glasses3.png
+  > Scale: 1.00, X-Offset: None, Y-Offset: None, Rotation Offset: 0.0 deg
+
+--- Personalized Suggestions ---
+
+Optical Frames:
+Frames that are wider than they are tall (Rectangle, Square, Geometric). Aim for dark colors or patterns to add definition. A high, clear bridge helps elongate the nose.
+
+Sun & Protective Wear:
+Angular styles like Square, Wayfarer, or Cat-Eye to create contrast. Avoid small, round, or rimless styles. Look for thick, prominent temples to add width.
+
+Hats / Headwear:
+AI unavailable. Using geometric rules.
+
+Earrings / Studs:
+AI unavailable. Using geometric rules.
+
+Necklaces / Pendants:
+AI unavailable. Using geometric rules.

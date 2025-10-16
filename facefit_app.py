@@ -12,7 +12,7 @@ import time # NEW: For generating unique filenames
 
 # NEW: Import the Google GenAI SDK
 try:
-    import google.genai as genai 
+    import google.genai as genai
     GEMINI_CLIENT = None
 except ImportError:
     print("WARNING: google-genai not installed. AI suggestions will use fallback data.")
@@ -53,7 +53,7 @@ ACCESSORY_KEYWORDS = {
     'Hats / Headwear': ['cap', 'hat', 'fedora', 'beanie', 'headband', 'crown', 'brim'],
     'Earrings / Jewelry': ['earring', 'hoop', 'stud', 'jewel', 'pendant', 'drop'],
     'Necklaces / Pendants': ['necklace', 'chain', 'pendant', 'scarf', 'tie', 'choker'],
-    'Others': [] 
+    'Others': []
 }
 
 def determine_placement(accessory_name):
@@ -73,10 +73,10 @@ ACCESSORY_CATEGORIES = {}
 def organize_accessories():
     global ACCESSORY_CATEGORIES
     ACCESSORY_CATEGORIES = {cat: [] for cat in ACCESSORY_KEYWORDS.keys()}
-    
+
     if os.path.exists(ACCESORY_DIR):
         accessory_files = sorted([f for f in os.listdir(ACCESORY_DIR) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
-        
+
         for filename in accessory_files:
             assigned = False
             for category, keywords in ACCESSORY_KEYWORDS.items():
@@ -87,7 +87,7 @@ def organize_accessories():
                     break
             if not assigned:
                 ACCESSORY_CATEGORIES['Others'].append(filename)
-    
+
     ACCESSORY_CATEGORIES = {k: v for k, v in ACCESSORY_CATEGORIES.items() if v}
 
 organize_accessories()
@@ -109,7 +109,7 @@ def process_accessory_image(img_data, placement='default'):
     if img_data is None: return None
     accessory_img = cv2.imdecode(np.frombuffer(img_data, np.uint8), cv2.IMREAD_UNCHANGED)
     if accessory_img is None: return None
-    
+
     if accessory_img.ndim < 3 or accessory_img.shape[2] == 1:
         bgra_img = cv2.cvtColor(accessory_img, cv2.COLOR_GRAY2BGRA)
     elif accessory_img.shape[2] == 3:
@@ -155,20 +155,20 @@ def rotate_accessory(accessory_img, angle_deg, target_width, target_height):
 
     h_acc, w_acc, _ = resized_acc.shape
     M = cv2.getRotationMatrix2D((w_acc / 2, h_acc / 2), angle_deg, 1.0)
-    
+
     cos = np.abs(M[0, 0])
     sin = np.abs(M[0, 1])
-    
+
     new_w = int((h_acc * sin) + (w_acc * cos))
     new_h = int((h_acc * cos) + (w_acc * sin))
-    
+
     M[0, 2] += (new_w / 2) - (w_acc / 2)
     M[1, 2] += (new_h / 2) - (h_acc / 2)
-    
-    rotated_acc = cv2.warpAffine(resized_acc, M, (new_w, new_h), 
-                                     borderMode=cv2.BORDER_CONSTANT, 
+
+    rotated_acc = cv2.warpAffine(resized_acc, M, (new_w, new_h),
+                                     borderMode=cv2.BORDER_CONSTANT,
                                      borderValue=(0, 0, 0, 0))
-    
+
     return rotated_acc, new_w, new_h
 
 def _apply_single_overlay(frame, accessory_img_resized, x_offset, y_offset):
@@ -183,7 +183,7 @@ def _apply_single_overlay(frame, accessory_img_resized, x_offset, y_offset):
     y1, y2 = y_offset, y_offset + h_acc
     x1, x2 = x_offset, x_offset + w_acc
 
-    # Recalculate frame/accessory slices 
+    # Recalculate frame/accessory slices
     y1_frame, x1_frame = max(0, y1), max(0, x1)
     y2_frame, x2_frame = min(frame_h, y2), min(frame_w, x2)
 
@@ -217,59 +217,59 @@ def _apply_single_overlay(frame, accessory_img_resized, x_offset, y_offset):
 def overlay_accessory(frame, accessory_img, landmarks, placement='default', overrides=None):
     if PREDICTOR is None or landmarks is None or len(landmarks) < 68 or accessory_img.shape[2] != 4:
         return frame
-        
+
     landmarks_np = np.array(landmarks)
-    
+
     # --- 1. Calculate Face Roll Angle ---
-    p_left_eye_outer = landmarks_np[36] 
-    p_right_eye_outer = landmarks_np[45] 
+    p_left_eye_outer = landmarks_np[36]
+    p_right_eye_outer = landmarks_np[45]
     dx = p_right_eye_outer[0] - p_left_eye_outer[0]
     dy = p_right_eye_outer[1] - p_left_eye_outer[1]
     angle_deg = np.degrees(np.arctan2(dy, dx))
-    
+
     # --- APPLY USER ROTATION OVERRIDE ---
     rotation_offset = overrides.get('rotation_offset', 0) if overrides else 0
     final_rotation_angle = angle_deg + rotation_offset
-    
+
     # --- 2. Calculate Scaling and Center Points ---
     p_left_temple = landmarks_np[0]
-    p_right_temple = landmarks_np[16] 
+    p_right_temple = landmarks_np[16]
     p_nose_bridge = landmarks_np[27]
-    p_chin = landmarks_np[8] 
-    p_left_eye_inner = landmarks_np[39] 
-    p_right_eye_inner = landmarks_np[42] 
+    p_chin = landmarks_np[8]
+    p_left_eye_inner = landmarks_np[39]
+    p_right_eye_inner = landmarks_np[42]
 
     face_width = np.linalg.norm(p_right_temple - p_left_temple)
     center_x_face = (p_left_temple[0] + p_right_temple[0]) // 2
-    
+
     # --- APPLY USER SCALE OVERRIDE ---
-    scale_factor = overrides.get('scale_factor', 1.0) if overrides else 1.0 
-    
-    target_width_multiplier = 1.3 
+    scale_factor = overrides.get('scale_factor', 1.0) if overrides else 1.0
+
+    target_width_multiplier = 1.3
     if placement == 'hat':
-        target_width_multiplier = 1.5 
+        target_width_multiplier = 1.5
     elif placement == 'earrings':
-        target_width_multiplier = 0.4 
+        target_width_multiplier = 0.4
     elif placement == 'necklace':
-        target_width_multiplier = 1.6 
+        target_width_multiplier = 1.6
 
     h_acc_orig, w_acc_orig, _ = accessory_img.shape
-    
+
     if placement == 'glasses' or placement == 'default':
-        eye_distance = np.linalg.norm(landmarks_np[45] - landmarks_np[36]) 
+        eye_distance = np.linalg.norm(landmarks_np[45] - landmarks_np[36])
         target_width = int(eye_distance * 1.8 * scale_factor) # Apply scale_factor
     else:
         target_width = int(face_width * target_width_multiplier * scale_factor) # Apply scale_factor
-        
+
     target_height = int((target_width / w_acc_orig) * h_acc_orig)
-    
-    if target_width < 10 or target_height < 10: return frame 
+
+    if target_width < 10 or target_height < 10: return frame
 
     # --- 3. Rotate and Resize the Accessory (Using FINAL ANGLE) ---
     rotated_acc, new_w, new_h = rotate_accessory(accessory_img, final_rotation_angle, target_width, target_height)
 
     # --- 4. Positioning Logic (x_offset, y_offset are the top-left corner) ---
-    
+
     # Helper to retrieve the override safely
     # If the user hasn't moved the accessory, the offset will be None (or 1.0 for scale).
     # We apply the user's manual offset relative to the calculated default position.
@@ -279,80 +279,80 @@ def overlay_accessory(frame, accessory_img, landmarks, placement='default', over
 
 
     if placement == 'glasses' or placement == 'default':
-        center_x_target = (p_left_eye_inner[0] + p_right_eye_inner[0]) // 2 
+        center_x_target = (p_left_eye_inner[0] + p_right_eye_inner[0]) // 2
         center_y_eye_line = (landmarks_np[36][1] + landmarks_np[45][1]) // 2
-        center_y_target = center_y_eye_line + int(target_height * 0.10) 
-        
+        center_y_target = center_y_eye_line + int(target_height * 0.10)
+
         default_x_offset = center_x_target - int(new_w / 2)
         default_y_offset = center_y_target - int(new_h / 2)
-        
+
         # Apply override delta
         x_offset = get_override_pos_delta('x_offset', default_x_offset)
         y_offset = get_override_pos_delta('y_offset', default_y_offset)
-        
+
     elif placement == 'hat':
-        center_y_face = p_nose_bridge[1] - int(face_width * 0.5) 
-        
+        center_y_face = p_nose_bridge[1] - int(face_width * 0.5)
+
         default_x_offset = center_x_face - int(new_w / 2)
         default_y_offset = center_y_face - int(new_h / 2)
-        
+
         # Apply override delta
         x_offset = get_override_pos_delta('x_offset', default_x_offset)
         y_offset = get_override_pos_delta('y_offset', default_y_offset)
-        
+
     elif placement == 'earrings':
         # Left Earring Default Position
         earring_center_x_left = p_left_temple[0]
-        earring_center_y_left = p_left_temple[1] + int(face_width * 0.05) 
-        
+        earring_center_y_left = p_left_temple[1] + int(face_width * 0.05)
+
         default_x_offset_left = earring_center_x_left - int(new_w / 2)
         default_y_offset_left = earring_center_y_left - int(new_h / 2)
-        
+
         # Apply override delta for left earring
         user_dx_delta = overrides.get('x_offset', 0) if overrides and overrides.get('x_offset') is not None else 0
         user_dy_delta = overrides.get('y_offset', 0) if overrides and overrides.get('y_offset') is not None else 0
-        
+
         x_offset_left = default_x_offset_left + user_dx_delta
         y_offset_left = default_y_offset_left + user_dy_delta
-        
+
         frame = _apply_single_overlay(frame, rotated_acc, x_offset_left, y_offset_left)
-        
+
         # Right Earring Default Position
         earring_center_x_right = p_right_temple[0]
         earring_center_y_right = p_right_temple[1] + int(face_width * 0.05)
-        
+
         default_x_offset_right = earring_center_x_right - int(new_w / 2)
         default_y_offset_right = earring_center_y_right - int(new_h / 2)
-        
+
         # Apply the same displacement (user_dx_delta/user_dy_delta) to the right earring
         x_offset_right = default_x_offset_right + user_dx_delta
         y_offset_right = default_y_offset_right + user_dy_delta
-        
+
         return _apply_single_overlay(frame, rotated_acc, x_offset_right, y_offset_right)
 
     elif placement == 'necklace':
-        neck_y_start = p_chin[1] 
-        
+        neck_y_start = p_chin[1]
+
         default_x_offset = center_x_face - int(new_w / 2)
-        default_y_offset = neck_y_start 
+        default_y_offset = neck_y_start
 
         # Apply override delta
         x_offset = get_override_pos_delta('x_offset', default_x_offset)
         y_offset = get_override_pos_delta('y_offset', default_y_offset)
-        
+
     return _apply_single_overlay(frame, rotated_acc, x_offset, y_offset)
 
 def classify_face_shape(landmarks):
     global ML_MODEL_LOADED, FACE_SHAPE_MODEL
     if not landmarks: return "Unknown"
-    
+
     if ML_MODEL_LOADED and FACE_SHAPE_MODEL is not None:
         try:
             features = landmarks_to_feature_vector(landmarks)
             if features.size > 0:
                 return FACE_SHAPE_MODEL.predict([features])[0]
         except Exception:
-            pass 
+            pass
 
     landmarks_np = np.array(landmarks)
     try:
@@ -368,12 +368,12 @@ def classify_face_shape(landmarks):
     if ratio_length_jaw >= 1.4:
         return "Long"
     elif ratio_length_jaw > 1.25 and ratio_jaw_forehead < 1.0:
-        return "Heart" 
+        return "Heart"
     elif ratio_length_jaw >= 1.15:
         return "Oval"
     elif ratio_length_jaw >= 1.0 and abs(jaw_width - forehead_width) < (jaw_width * 0.1):
         return "Square"
-    else: 
+    else:
         return "Round"
 
 # --- Initialization and Error Handling (Unchanged) ---
@@ -400,7 +400,7 @@ try:
 except Exception as e:
     DLIB_LOAD_ERROR = True
     print(f"FATAL ERROR during Dlib/Model Load: {e}")
-    PREDICTOR = None 
+    PREDICTOR = None
 
 # --- ACCESSORY SUGGESTIONS (STATIC FALLBACK) ---
 ACCESSORIES_DB = {
@@ -456,7 +456,7 @@ def configure_gemini():
     global GEMINI_CLIENT
     if GEMINI_CLIENT == "FALLBACK":
         return
-    
+
     api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
         try:
@@ -499,7 +499,7 @@ def generate_ai_suggestion(face_shape, gender, accessory_type):
             config={'system_instruction': system_prompt}
         )
         return response.text
-        
+
     except Exception as e:
         print(f"AI API Error for {accessory_type}: {e}. Returning static fallback.")
         static_text = ACCESSORIES_DB.get(face_shape, ACCESSORIES_DB['Unknown']).get(accessory_type, {'text': "AI suggestion failed. Try geometric rules."}).get('text')
@@ -512,69 +512,71 @@ class FaceFitApp(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.title("FaceFit AI: Virtual Try-On")
-        self.geometry("1000x650") 
-        
+        self.geometry("1000x650")
+
         configure_gemini()
-        
+
         self.configure_styles()
-        
+
         self.gender_var = tk.StringVar(value='Female')
         self.category_var = tk.StringVar(value=list(ACCESSORY_CATEGORIES.keys())[0] if ACCESSORY_CATEGORIES else "")
         self.accessory_files = []
         self.current_face_shape = tk.StringVar(value="N/A")
-        self.image_input_cv2 = None 
+        self.image_input_cv2 = None
         self.accessory_listbox_var = tk.StringVar()
-        self.ai_suggestions = {} 
-        self.suggestion_thread = None 
+        self.ai_suggestions = {}
+        self.suggestion_thread = None
 
-        # Performance Throttling Variables
-        self.last_frame_resized = None 
-        self.frame_count = 0 
-        self.process_interval = 3 
-        self.last_landmarks = None 
-        
-        # --- NEW: Drag/Resize/Rotation Variables ---
+        # --- PERFORMANCE & TRACKING VARIABLES (OPTIMIZED) ---
+        self.last_frame_processed = None
+        self.frame_count = 0
+        self.process_interval = 5 # Run full detection every 5 frames
+        self.last_landmarks = None
+        self.face_tracker = None # For dlib's correlation tracker
+        self.tracker_active = False # Flag to indicate if the tracker is in use
+
+        # --- Drag/Resize/Rotation Variables ---
         self.selected_accessory_name = None # Name of the accessory currently being edited
         # Stores user overrides: {name: {'x_offset': int, 'y_offset': int, 'scale_factor': float, 'rotation_offset': float}}
-        self.accessory_overrides = {} 
+        self.accessory_overrides = {}
         self.ROTATION_INCREMENT = 3 # Degrees to rotate per key press
 
         self.tk_setPalette(background=COLORS['White'])
 
         main_paned = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
         main_paned.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
+
         left_frame = ttk.Frame(main_paned, width=650, style='Custom.TFrame')
         main_paned.add(left_frame, weight=3)
         self.setup_display_tabs(left_frame)
-        
+
         right_frame = ttk.Frame(main_paned, width=300, style='Custom.TFrame')
         main_paned.add(right_frame, weight=1)
-        
+
         self.setup_controls(right_frame)
         self.setup_results(right_frame)
-        
+
         if DLIB_LOAD_ERROR:
             messagebox.showerror("Initialization Error", "Failed to load dlib files or models. Face detection will be limited.")
-            
-        self.update_suggestions() 
-        
-        # --- NEW: Bind keyboard events for resizing, moving, and rotation ---
-        
+
+        self.update_suggestions()
+
+        # --- Bind keyboard events for resizing, moving, and rotation ---
+
         # Resizing (Use '+' and '-' for increasing/decreasing scale)
         self.bind('+', lambda event: self.change_accessory_scale(0.05))
         self.bind('-', lambda event: self.change_accessory_scale(-0.05))
-        
+
         # Fine-Tuning Movement (Arrow Keys)
-        self.bind('<Left>', lambda event: self.move_accessory('x', -5)) 
+        self.bind('<Left>', lambda event: self.move_accessory('x', -5))
         self.bind('<Right>', lambda event: self.move_accessory('x', 5))
         self.bind('<Up>', lambda event: self.move_accessory('y', -5))
         self.bind('<Down>', lambda event: self.move_accessory('y', 5))
-        
+
         # Rotation (Q and E keys)
         self.bind('q', lambda event: self.change_accessory_rotation(-self.ROTATION_INCREMENT)) # Q: Counter-Clockwise
         self.bind('e', lambda event: self.change_accessory_rotation(self.ROTATION_INCREMENT))  # E: Clockwise
-        
+
         # Resetting (Use Delete or Backspace)
         self.bind('<Delete>', lambda event: self.clear_accessory_override(self.selected_accessory_name))
         self.bind('<BackSpace>', lambda event: self.clear_accessory_override(self.selected_accessory_name))
@@ -583,29 +585,29 @@ class FaceFitApp(tk.Tk):
     # --- STYLE & SETUP METHODS (Unchanged) ---
     def configure_styles(self,):
         s = ttk.Style()
-        s.theme_use('default') 
-        
+        s.theme_use('default')
+
         s.configure('Custom.TFrame', background=COLORS['White'])
         s.configure('Custom.TLabel', background=COLORS['White'], foreground=COLORS['Black'], font=('Arial', 10))
         s.configure('Header.TLabel', background=COLORS['White'], foreground=COLORS['Deep_Indigo'], font=('Arial', 10, 'bold'))
         s.configure('Result.TLabel', background=COLORS['Light_Pink'], foreground=COLORS['Deep_Indigo'], font=('Arial', 14, 'bold'), padding=5)
-        
+
         s.configure('TNotebook', background=COLORS['White'], borderwidth=0)
         s.configure('TNotebook.Tab', background=COLORS['Light_Pink'], foreground=COLORS['Black'], padding=[10, 5])
-        s.map('TNotebook.Tab', 
+        s.map('TNotebook.Tab',
               background=[('selected', COLORS['Deep_Indigo']), ('active', COLORS['Light_Pink'])],
               foreground=[('selected', COLORS['White']), ('active', COLORS['Black'])],
               expand=[('selected', [1, 1, 1, 0])])
-              
+
         s.configure('Primary.TButton', background=COLORS['Deep_Indigo'], foreground=COLORS['White'], font=('Arial', 10, 'bold'), borderwidth=0)
         s.map('Primary.TButton', background=[('active', COLORS['Bright_Violet']), ('!disabled', COLORS['Deep_Indigo'])])
-        
+
         s.configure('Success.TButton', background=COLORS['Aqua_Green'], foreground=COLORS['Black'], font=('Arial', 10, 'bold'), borderwidth=0)
         s.map('Success.TButton', background=[('active', COLORS['Dark_Olive']), ('!disabled', COLORS['Aqua_Green'])])
-        
+
         s.configure('Danger.TButton', background=COLORS['Crimson_Red'], foreground=COLORS['White'], font=('Arial', 10, 'bold'), borderwidth=0)
         s.map('Danger.TButton', background=[('active', COLORS['Light_Pink']), ('!disabled', COLORS['Crimson_Red'])])
-        
+
         s.configure('TLabelFrame', background=COLORS['White'], bordercolor=COLORS['Dark_Olive'])
         s.configure('TLabelFrame.Label', background=COLORS['White'], foreground=COLORS['Deep_Indigo'], font=('Arial', 11, 'bold'))
 
@@ -621,51 +623,51 @@ class FaceFitApp(tk.Tk):
         self.webcam_display_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.video_label = ttk.Label(self.webcam_display_frame, text="Click 'Start Webcam' to begin live try-on. Use Arrow Keys to move, +/- to resize, and Q/E to rotate selected accessory.", style='Custom.TLabel', anchor='center')
         self.video_label.pack(fill=tk.BOTH, expand=True)
-        
+
         self.upload_tab = ttk.Frame(self.notebook, style='Custom.TFrame')
         self.notebook.add(self.upload_tab, text='🖼️ Upload Photo')
         self.upload_display_frame = ttk.Frame(self.upload_tab, style='Custom.TFrame')
         self.upload_display_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+
         ttk.Button(self.upload_display_frame, text="1. Select Photo for Try-On", command=self.load_image_file, style='Primary.TButton').pack(fill=tk.X, pady=5)
-        
+
         self.static_image_label = ttk.Label(self.upload_display_frame, text="Uploaded image will appear here. Use Arrow Keys to move, +/- to resize, and Q/E to rotate selected accessory.", style='Custom.TLabel', anchor='center')
         self.static_image_label.pack(fill=tk.BOTH, expand=True)
-        
+
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_change)
 
     def on_tab_change(self, event):
         selected_tab = self.notebook.tab(self.notebook.select(), "text")
         if selected_tab != '📹 Live Webcam':
             self.stop_webcam()
-            
+
     def setup_controls(self, parent_frame):
         profile_group = ttk.LabelFrame(parent_frame, text="User Profile", padding="10 10 10 10")
         profile_group.pack(fill=tk.X, padx=5, pady=5)
-        
+
         ttk.Label(profile_group, text="Gender:", style='Custom.TLabel').grid(row=0, column=0, sticky='w', padx=5, pady=2)
-        self.gender_dropdown = ttk.Combobox(profile_group, textvariable=self.gender_var, 
+        self.gender_dropdown = ttk.Combobox(profile_group, textvariable=self.gender_var,
                       values=['Female', 'Male', 'Other', 'Prefer not to say'], state='readonly')
         self.gender_dropdown.grid(row=0, column=1, sticky='ew', padx=5, pady=2)
         self.gender_dropdown.bind('<<ComboboxSelected>>', lambda e: self.update_suggestions())
 
         accessory_group = ttk.LabelFrame(parent_frame, text="Select Accessories (Multi-Select)", padding="10 10 10 10")
         accessory_group.pack(fill=tk.X, padx=5, pady=5)
-        
+
         ttk.Label(accessory_group, text="Category:", style='Custom.TLabel').pack(fill=tk.X, padx=5, pady=2)
-        
-        self.category_dropdown = ttk.Combobox(accessory_group, 
-                                              textvariable=self.category_var, 
-                                              values=list(ACCESSORY_CATEGORIES.keys()), 
+
+        self.category_dropdown = ttk.Combobox(accessory_group,
+                                              textvariable=self.category_var,
+                                              values=list(ACCESSORY_CATEGORIES.keys()),
                                               state='readonly')
         self.category_dropdown.pack(fill=tk.X, padx=5, pady=2)
         self.category_dropdown.bind('<<ComboboxSelected>>', self.update_accessory_listbox)
-        
+
         ttk.Label(accessory_group, text="Files (Ctrl/Shift):", style='Custom.TLabel').pack(fill=tk.X, padx=5, pady=2)
-        
-        self.accessory_listbox = tk.Listbox(accessory_group, 
-                                             height=6, 
-                                             selectmode=tk.MULTIPLE, 
+
+        self.accessory_listbox = tk.Listbox(accessory_group,
+                                             height=6,
+                                             selectmode=tk.MULTIPLE,
                                              listvariable=self.accessory_listbox_var,
                                              bg=COLORS['White'],
                                              fg=COLORS['Black'],
@@ -674,19 +676,19 @@ class FaceFitApp(tk.Tk):
                                              borderwidth=1,
                                              relief='flat')
         self.accessory_listbox.pack(fill=tk.X, padx=5, pady=2)
-        
+
         self.accessory_listbox.bind('<<ListboxSelect>>', self.load_selected_accessories)
         self.update_accessory_listbox()
 
         webcam_group = ttk.LabelFrame(parent_frame, text="Camera Control", padding="10 10 10 10")
         webcam_group.pack(fill=tk.X, padx=5, pady=5)
-        
+
         ttk.Button(webcam_group, text="Start Webcam", command=self.start_webcam, style='Success.TButton').grid(row=0, column=0, sticky='ew', padx=5, pady=5)
         ttk.Button(webcam_group, text="Stop Webcam", command=self.stop_webcam, style='Danger.TButton').grid(row=0, column=1, sticky='ew', padx=5, pady=5)
-        
+
         # --- NEW: Save Favorite Button ---
-        ttk.Button(webcam_group, text="💾 Save Favorite Look", 
-                   command=self.save_favorite_look, 
+        ttk.Button(webcam_group, text="💾 Save Favorite Look",
+                   command=self.save_favorite_look,
                    style='Primary.TButton').grid(row=1, column=0, columnspan=2, sticky='ew', padx=5, pady=5)
 
 
@@ -694,109 +696,113 @@ class FaceFitApp(tk.Tk):
         """Updates the listbox with accessories for the selected category."""
         category = self.category_var.get()
         files = ACCESSORY_CATEGORIES.get(category, [])
-        
+
         self.accessory_listbox.selection_clear(0, tk.END)
         self.accessory_listbox.delete(0, tk.END)
-        
+
         for f in files:
             self.accessory_listbox.insert(tk.END, f)
-            
-        self.accessory_files = files
-        self.load_selected_accessories() 
 
-    # --- WEBCAM/PROCESSING METHODS (Throttling & Smoothing) ---
+        self.accessory_files = files
+        self.load_selected_accessories()
+
+    # --- WEBCAM/PROCESSING METHODS (OPTIMIZED with TRACKER) ---
     def process_webcam_frame(self):
         global CAP, LIVE_STREAMING, LAST_FACE_SHAPE
 
-        if LIVE_STREAMING and CAP is not None:
-            ret, frame = CAP.read()
-            if not ret:
-                self.after(30, self.process_webcam_frame)
-                return
-
-            # Frame resizing
-            if self.last_frame_resized is None or frame.shape[1] != VIDEO_WIDTH or frame.shape[0] != VIDEO_HEIGHT:
-                self.last_frame_resized = cv2.resize(frame, (VIDEO_WIDTH, VIDEO_HEIGHT))
-            else:
-                if frame.shape[1] != VIDEO_WIDTH or frame.shape[0] != VIDEO_HEIGHT:
-                     self.last_frame_resized = cv2.resize(frame, (VIDEO_WIDTH, VIDEO_HEIGHT))
-                else:
-                    self.last_frame_resized = frame.copy() 
-            
-            processed_frame = self.last_frame_resized
-            
-            # --- THROTTLING LOGIC ---
-            run_full_detection = (self.frame_count % self.process_interval == 0)
-            self.frame_count += 1
-            
-            current_landmarks = None
-
-            if run_full_detection:
-                # EXPENSIVE: Detect and get landmarks
-                face, landmarks = detect_and_get_landmarks(processed_frame)
-                
-                if landmarks and len(landmarks) == 68:
-                    current_landmarks = landmarks
-                    self.last_landmarks = landmarks # Cache the new position
-                    
-                    # Update UI elements and request AI suggestions on detection
-                    new_shape = classify_face_shape(landmarks)
-                    if LAST_FACE_SHAPE != new_shape:
-                        LAST_FACE_SHAPE = new_shape
-                        self.current_face_shape.set(LAST_FACE_SHAPE)
-                        self.update_suggestions() # Trigger AI suggestion request
-                    
-                else:
-                    self.current_face_shape.set("Face Not Found")
-                    self.last_landmarks = None 
-                    
-            else:
-                # FAST: Use cached landmarks
-                current_landmarks = self.last_landmarks
-
-            # --- RENDERING (Runs on every frame using the best available landmark data) ---
-            if current_landmarks:
-                # Recalculate bounding box from the landmarks
-                landmarks_np = np.array(current_landmarks)
-                x = min(landmarks_np[:, 0])
-                y = min(landmarks_np[:, 1])
-                x_max = max(landmarks_np[:, 0])
-                y_max = max(landmarks_np[:, 1])
-                
-                # Draw bounding box (FIXED: using x_max, y_max)
-                cv2.rectangle(processed_frame, (x, y), (x_max, y_max), hex_to_bgr(COLORS['Dark_Olive']), 2) 
-                
-                # Apply selected accessories
-                for name, img_data in self.selected_accessories.items():
-                    placement = determine_placement(name)
-                    # --- Pass the override data ---
-                    overrides = self.accessory_overrides.get(name)
-                    processed_frame = overlay_accessory(processed_frame, img_data, current_landmarks, placement, overrides)
-                
-            # --- DISPLAY FRAME ---
-            img = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(img)
-            imgtk = ImageTk.PhotoImage(image=img)
-            self.video_label.imgtk = imgtk
-            self.video_label.configure(image=imgtk)
-            
-            self.after(30, self.process_webcam_frame) # Re-queue the frame processing
-            
-        else:
+        if not LIVE_STREAMING or CAP is None:
             self.stop_webcam()
-            
+            return
+
+        ret, frame = CAP.read()
+        if not ret:
+            # If no frame, try again shortly
+            self.after(20, self.process_webcam_frame)
+            return
+
+        # Resize once at the beginning
+        processed_frame = cv2.resize(frame, (VIDEO_WIDTH, VIDEO_HEIGHT))
+        self.last_frame_processed = processed_frame # Store for saving
+
+        # --- ENHANCED TRACKING & THROTTLING LOGIC ---
+        run_full_detection = (self.frame_count % self.process_interval == 0)
+        self.frame_count += 1
+
+        current_landmarks = None
+
+        # If the tracker is running and it's not time for a full detection, use the tracker.
+        if self.tracker_active and not run_full_detection:
+            # FAST: Update the tracker and get the new face position
+            self.face_tracker.update(processed_frame)
+            pos = self.face_tracker.get_position()
+            face_rect = dlib.rectangle(int(pos.left()), int(pos.top()), int(pos.right()), int(pos.bottom()))
+
+            # Run the (relatively fast) landmark prediction on the tracked region
+            if PREDICTOR:
+                landmarks_dlib = PREDICTOR(processed_frame, face_rect)
+                current_landmarks = [(landmarks_dlib.part(i).x, landmarks_dlib.part(i).y) for i in range(0, 68)]
+                self.last_landmarks = current_landmarks # Cache the tracked landmarks
+        else:
+            # EXPENSIVE: Run full face detection
+            self.tracker_active = False # Assume tracker is lost until a face is found
+            face, landmarks = detect_and_get_landmarks(processed_frame)
+
+            if landmarks and len(landmarks) == 68:
+                current_landmarks = landmarks
+                self.last_landmarks = landmarks
+
+                # A face was found! Initialize the tracker for subsequent frames.
+                self.face_tracker = dlib.correlation_tracker()
+                self.face_tracker.start_track(processed_frame, face) # 'face' is already a dlib.rectangle
+                self.tracker_active = True
+
+                # Update UI elements only on fresh detection to save resources
+                new_shape = classify_face_shape(landmarks)
+                if LAST_FACE_SHAPE != new_shape:
+                    LAST_FACE_SHAPE = new_shape
+                    self.current_face_shape.set(LAST_FACE_SHAPE)
+                    self.update_suggestions()
+            else:
+                # No face found, so ensure tracker is off
+                self.current_face_shape.set("Face Not Found")
+                self.last_landmarks = None
+                self.tracker_active = False
+
+        # --- RENDERING (This part remains the same but gets smoother data) ---
+        if current_landmarks:
+            landmarks_np = np.array(current_landmarks)
+            x, y, w, h = cv2.boundingRect(landmarks_np)
+
+            cv2.rectangle(processed_frame, (x, y), (x + w, y + h), hex_to_bgr(COLORS['Dark_Olive']), 2)
+
+            for name, img_data in self.selected_accessories.items():
+                placement = determine_placement(name)
+                overrides = self.accessory_overrides.get(name)
+                processed_frame = overlay_accessory(processed_frame, img_data, current_landmarks, placement, overrides)
+
+        # --- DISPLAY FRAME ---
+        img = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(img)
+        imgtk = ImageTk.PhotoImage(image=img)
+        self.video_label.imgtk = imgtk
+        self.video_label.configure(image=imgtk)
+
+        # Re-queue the next frame processing. A shorter delay (20ms ≈ 50fps) will feel much smoother.
+        self.after(20, self.process_webcam_frame)
+
+
     # --- AI/SUGGESTION METHODS (Unchanged) ---
-    
+
     def get_accessory_suggestion_async(self):
         """Worker function to call the AI API in a separate thread."""
         face_shape = self.current_face_shape.get()
         gender = self.gender_var.get()
-        
+
         accessory_types = [
-            'Optical Frames', 'Sun & Protective Wear', 'Hats / Headwear', 
+            'Optical Frames', 'Sun & Protective Wear', 'Hats / Headwear',
             'Earrings / Studs', 'Necklaces / Pendants'
         ]
-        
+
         new_suggestions = {}
         for acc_type in accessory_types:
             suggestion_text = generate_ai_suggestion(face_shape, gender, acc_type)
@@ -806,48 +812,48 @@ class FaceFitApp(tk.Tk):
 
     def update_suggestions(self):
         """Initiates the AI suggestion generation thread."""
-        
+
         for widget in self.suggestions_frame.winfo_children():
             widget.destroy()
-        
+
         if self.current_face_shape.get() not in ["N/A", "Face Not Found"]:
             loading_message = "🧠 Generating dynamic suggestions (may take a moment)..."
         else:
             loading_message = "Face shape needed for dynamic suggestions."
-            
+
         loading_label = ttk.Label(self.suggestions_frame, text=loading_message, style='Custom.TLabel', foreground=COLORS['Deep_Indigo'], wraplength=270)
         loading_label.pack(fill=tk.X, padx=5, pady=10)
 
         if self.current_face_shape.get() not in ["N/A", "Face Not Found"]:
             if self.suggestion_thread is None or not self.suggestion_thread.is_alive():
                 self.suggestion_thread = threading.Thread(target=self.get_accessory_suggestion_async)
-                self.suggestion_thread.daemon = True 
+                self.suggestion_thread.daemon = True
                 self.suggestion_thread.start()
 
     def setup_results(self, parent_frame):
         results_group = ttk.LabelFrame(parent_frame, text="Results & Suggestions", padding="10 10 10 10")
         results_group.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+
         ttk.Label(results_group, text="Detected Face Shape:", style='Header.TLabel').pack(fill=tk.X, padx=5, pady=(0, 2))
         ttk.Label(results_group, textvariable=self.current_face_shape, style='Result.TLabel').pack(fill=tk.X, padx=5, pady=(0, 5))
-        
+
         ttk.Label(results_group, text="Accessory Fit Advice:", style='Header.TLabel').pack(fill=tk.X, padx=5, pady=(5, 2))
 
         self.suggestions_frame = ttk.Frame(results_group, style='Custom.TFrame')
         self.suggestions_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+
         self.display_suggestions(self.ai_suggestions)
 
     def display_suggestions(self, suggestions):
         """Displays the results of the (AI or Fallback) suggestions in the GUI."""
         self.ai_suggestions = suggestions
-        
+
         for widget in self.suggestions_frame.winfo_children():
             widget.destroy()
 
         canvas = tk.Canvas(self.suggestions_frame, bg=COLORS['White'], highlightthickness=0)
         v_scrollbar = ttk.Scrollbar(self.suggestions_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg=COLORS['White']) 
+        scrollable_frame = tk.Frame(canvas, bg=COLORS['White'])
 
         scrollable_frame.bind(
             "<Configure>",
@@ -858,34 +864,34 @@ class FaceFitApp(tk.Tk):
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=v_scrollbar.set)
-        
+
         v_scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
 
-        bg_colors = [COLORS['White'], '#fce4f0'] 
+        bg_colors = [COLORS['White'], '#fce4f0']
         row = 0
-        
-        if not suggestions: 
-             tk.Label(scrollable_frame, text="Click 'Start Webcam' or upload a photo to get personalized advice.", 
+
+        if not suggestions:
+             tk.Label(scrollable_frame, text="Click 'Start Webcam' or upload a photo to get personalized advice.",
                       wraplength=270, justify=tk.LEFT, background=COLORS['White'], foreground=COLORS['Dark_Olive']).grid(row=0, column=0, sticky='w', padx=5, pady=5)
              return
 
         for i, (title, item) in enumerate(suggestions.items()):
             bg = bg_colors[i % 2]
-            
+
             tk.Label(scrollable_frame, text=f"• {title}:", font=('Arial', 10, 'bold'),
-                      background=bg, 
+                      background=bg,
                       foreground=COLORS['Deep_Indigo'], anchor='nw', justify=tk.LEFT).grid(row=row, column=0, sticky='nw', padx=5, pady=(5,0), columnspan=2)
             row += 1
-            
+
             tk.Label(scrollable_frame, text=item.get('text','N/A'), wraplength=270,
-                      justify=tk.LEFT, font=('Arial', 10), 
-                      background=bg, 
+                      justify=tk.LEFT, font=('Arial', 10),
+                      background=bg,
                       foreground=COLORS['Black'], anchor='w').grid(row=row, column=0, sticky='w', padx=15, pady=(0,5), columnspan=2)
             row += 1
 
     # --- KEYBOARD CONTROL METHODS (UPDATED) ---
-    
+
     def move_accessory(self, axis, delta):
         """Moves the selected accessory by 'delta' along the specified 'axis' (x or y)."""
         if not self.selected_accessory_name:
@@ -896,32 +902,32 @@ class FaceFitApp(tk.Tk):
 
         # If offset is None, initialize it to 0 (meaning no displacement from default)
         if override.get(key) is None:
-            override[key] = 0 
-            
+            override[key] = 0
+
         # Apply the movement delta
         override[key] += delta
-            
+
         print(f"Moved {self.selected_accessory_name} {axis.upper()} by {delta}. New displacement: {override[key]}")
 
-        # Trigger redraw 
+        # Trigger redraw
         if self.notebook.tab(self.notebook.select(), "text") == '🖼️ Upload Photo':
             self.display_static_image(self.image_input_cv2.copy())
         # Live webcam handles redraw automatically.
-        
+
     def change_accessory_scale(self, delta):
         """Increases or decreases the scale factor of the selected accessory."""
         if not self.selected_accessory_name:
             return
 
         override = self.accessory_overrides[self.selected_accessory_name]
-        
+
         current_scale = override.get('scale_factor', 1.0)
-        
+
         # Ensure scale factor stays within a reasonable range (0.1 to 3.0)
         new_scale = max(0.1, min(3.0, current_scale + delta))
-        
+
         override['scale_factor'] = new_scale
-        
+
         print(f"Changed {self.selected_accessory_name} scale to: {new_scale:.2f}")
 
         # Trigger redraw
@@ -934,66 +940,66 @@ class FaceFitApp(tk.Tk):
             return
 
         override = self.accessory_overrides[self.selected_accessory_name]
-        
+
         # If offset is None, initialize it to 0 (meaning no displacement from face tilt)
         if override.get('rotation_offset') is None:
-            override['rotation_offset'] = 0 
-            
+            override['rotation_offset'] = 0
+
         # Apply the rotation delta
         override['rotation_offset'] += delta
-            
+
         print(f"Rotated {self.selected_accessory_name} by {delta}°. New offset: {override['rotation_offset']:.1f}")
 
-        # Trigger redraw 
+        # Trigger redraw
         if self.notebook.tab(self.notebook.select(), "text") == '🖼️ Upload Photo':
             self.display_static_image(self.image_input_cv2.copy())
-        
+
     def clear_accessory_override(self, name):
         """Resets the position, scale, and rotation of the accessory to automatic fitting."""
         if name and name in self.accessory_overrides:
             # Reset to the initial state (None for position, 1.0 for scale, 0.0 for rotation)
             self.accessory_overrides[name] = {'x_offset': None, 'y_offset': None, 'scale_factor': 1.0, 'rotation_offset': 0.0}
             print(f"Accessory '{name}' position, scale, and rotation reset to automatic fitting.")
-            
+
             # Trigger redraw
             if self.notebook.tab(self.notebook.select(), "text") == '🖼️ Upload Photo':
                 self.display_static_image(self.image_input_cv2.copy())
-                
+
     # --- NEW: SAVE FAVORITE LOOK FEATURE ---
     def save_favorite_look(self):
         """Saves the current displayed frame (with accessories) and the AI suggestions."""
-        
+
         # Determine the source frame based on the active tab
         active_tab = self.notebook.tab(self.notebook.select(), "text")
         frame_to_save = None
         source_type = None
 
         if active_tab == '📹 Live Webcam':
-            # Use the last processed frame from the webcam thread (self.last_frame_resized holds the frame with overlays)
-            frame_to_save = self.last_frame_resized
+            # Use the last processed frame from the webcam thread
+            frame_to_save = self.last_frame_processed
             source_type = "Webcam"
-        
+
         elif active_tab == '🖼️ Upload Photo' and self.image_input_cv2 is not None:
             # Re-process the original image to ensure accessories are applied on the saved copy
             temp_frame = self.image_input_cv2.copy()
             temp_frame = cv2.resize(temp_frame, (VIDEO_WIDTH, VIDEO_HEIGHT))
-            
+
             face, landmarks = detect_and_get_landmarks(temp_frame)
-            
+
             if landmarks:
                 # Apply accessories directly to the frame for saving
                 for name, img_data in self.selected_accessories.items():
                     placement = determine_placement(name)
                     overrides = self.accessory_overrides.get(name)
                     temp_frame = overlay_accessory(temp_frame, img_data, landmarks, placement, overrides)
-            
+
             frame_to_save = temp_frame
             source_type = "Upload"
-        
+
         else:
             messagebox.showinfo("Save Failed", "No active image to save. Start the webcam or upload a photo first.")
             return
-            
+
         if frame_to_save is None:
             messagebox.showinfo("Save Failed", "No frame data available to save.")
             return
@@ -1006,7 +1012,7 @@ class FaceFitApp(tk.Tk):
         # 2. Generate a unique filename
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         face_shape = self.current_face_shape.get().replace(' ', '_').replace('/', '-')
-        
+
         base_filename = f"Look_{timestamp}_{face_shape}"
         image_path = os.path.join(save_dir, f"{base_filename}.png")
         text_path = os.path.join(save_dir, f"{base_filename}_Advice.txt")
@@ -1040,12 +1046,12 @@ class FaceFitApp(tk.Tk):
                 else:
                     f.write("No advice currently displayed.\n")
 
-            messagebox.showinfo("Save Successful", 
+            messagebox.showinfo("Save Successful",
                                 f"Favorite Look saved to the 'Favorites' folder:\n{base_filename}.png and Advice.txt")
 
         except Exception as e:
             messagebox.showerror("Save Error", f"Failed to save files: {e}")
-            
+
     # --- REMAINING I/O METHODS (Webcam/File) ---
     def start_webcam(self):
         global CAP, LIVE_STREAMING
@@ -1055,7 +1061,7 @@ class FaceFitApp(tk.Tk):
                 CAP.set(cv2.CAP_PROP_FRAME_WIDTH, VIDEO_WIDTH)
                 CAP.set(cv2.CAP_PROP_FRAME_HEIGHT, VIDEO_HEIGHT)
                 LIVE_STREAMING = True
-                self.frame_count = 0 
+                self.frame_count = 0
                 self.process_webcam_frame()
                 self.video_label.config(text="Live try-on active. Use Arrow Keys to move, +/- to resize, and Q/E to rotate selected accessory.")
             except Exception as e:
@@ -1067,50 +1073,51 @@ class FaceFitApp(tk.Tk):
             CAP.release()
             CAP = None
         LIVE_STREAMING = False
-        self.last_landmarks = None 
+        self.last_landmarks = None
+        self.tracker_active = False # Reset tracker state
         if self.notebook.tab(self.notebook.select(), "text") == '📹 Live Webcam':
              self.video_label.config(image='', text="Click 'Start Webcam' to begin live try-on. Use Arrow Keys to move, +/- to resize, and Q/E to rotate selected accessory.")
 
     def load_image_file(self):
-        self.stop_webcam() 
+        self.stop_webcam()
         file_path = filedialog.askopenfilename(
             filetypes=[("Image Files", "*.jpg;*.jpeg;*.png;*.webp")]
         )
         if file_path:
             self.image_input_cv2 = cv2.imread(file_path)
-            
+
             if self.image_input_cv2 is None:
                  messagebox.showerror("File Error", "Failed to load image file.")
                  return
-                 
+
             self.display_static_image(self.image_input_cv2.copy())
 
     def load_selected_accessories(self, event=None):
         self.selected_accessories = {}
         selected_indices = self.accessory_listbox.curselection()
-        
+
         current_selection_names = [] # Track names for cleanup
-        
+
         for i in selected_indices:
             filename = self.accessory_listbox.get(i)
             current_selection_names.append(filename) # Keep track of currently loaded
-            
+
             placement = determine_placement(filename)
             try:
                 with open(os.path.join(ACCESORY_DIR, filename), 'rb') as f:
                     img_data = f.read()
-                
+
                 processed_img = process_accessory_image(img_data, placement)
                 if processed_img is not None:
                     self.selected_accessories[filename] = processed_img
-                    
+
                     # Initialize override if it doesn't exist
                     if filename not in self.accessory_overrides:
                         # x_offset/y_offset=None: auto-placement
                         # scale_factor=1.0: auto-scaling
                         # rotation_offset=0.0: only face tilt
                         self.accessory_overrides[filename] = {'x_offset': None, 'y_offset': None, 'scale_factor': 1.0, 'rotation_offset': 0.0}
-                        
+
             except Exception as e:
                 print(f"Error loading accessory {filename}: {e}")
 
@@ -1124,15 +1131,15 @@ class FaceFitApp(tk.Tk):
             self.selected_accessory_name = current_selection_names[-1]
         else:
             self.selected_accessory_name = None
-            
+
         if self.image_input_cv2 is not None and self.notebook.tab(self.notebook.select(), "text") == '🖼️ Upload Photo':
             self.display_static_image(self.image_input_cv2.copy())
-        
+
     def display_static_image(self, frame):
         """Processes and displays the static image with face detection and accessories."""
-        
+
         frame = cv2.resize(frame, (VIDEO_WIDTH, VIDEO_HEIGHT))
-        
+
         face, landmarks = detect_and_get_landmarks(frame)
 
         if landmarks:
@@ -1144,15 +1151,15 @@ class FaceFitApp(tk.Tk):
             y = min(landmarks_np[:, 1])
             x_max = max(landmarks_np[:, 0])
             y_max = max(landmarks_np[:, 1])
-            
+
             cv2.rectangle(frame, (x, y), (x_max, y_max), hex_to_bgr(COLORS['Dark_Olive']), 2)
-            
+
             for name, img_data in self.selected_accessories.items():
                 placement = determine_placement(name)
                 # --- Pass the override data ---\
                 overrides = self.accessory_overrides.get(name)
                 frame = overlay_accessory(frame, img_data, landmarks, placement, overrides)
-            
+
         else:
             self.current_face_shape.set("Face Not Found")
             messagebox.showinfo("Detection Status", "Could not detect a full face in the uploaded image.")
@@ -1160,10 +1167,10 @@ class FaceFitApp(tk.Tk):
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(img)
         imgtk = ImageTk.PhotoImage(image=img)
-        self.static_image_label.imgtk = imgtk 
+        self.static_image_label.imgtk = imgtk
         self.static_image_label.configure(image=imgtk, text='')
-        
-        self.update_suggestions() 
+
+        self.update_suggestions()
 
 if __name__ == "__main__":
     app = FaceFitApp()
