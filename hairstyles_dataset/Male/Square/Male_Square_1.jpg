@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>No Index</title>
+</head>
+
+<body>
+  <div class="page-container">
+    <h1 class="error-title">You have reached <br>an error page on WPX.net </h1>
+    <p class="error-msg">If you are seeing this page, it is because <br> there is no website installed on this domain
+      yet.
+    </p>
+    <p class="error-msg">Find the right hosting plan for you on the world's fastest <br>WordPress hosting service <a
+        class="wpxRedirect" href="https://wpx.net/cart/wordpress-hosting/">here</a>.</p>
+    <div class="awards">
+      <div class="box">
+        <p class="awards-title">MOST <br>TRUSTED</p>
+        <span class="brLine"></span>
+        <p class="awardsBy">Trusted by <br>Trustpilot.com</p>
+      </div>
+      <div class="box">
+        <p class="awards-title">BEST <br>SUPPORT</p>
+        <span class="brLine"></span>
+        <p class="awardsBy">Tested by <br>Mathew Woodward</p>
+      </div>
+      <div class="box">
+        <p class="awards-title">BEST <br>SEO</p>
+        <span class="brLine"></span>
+        <p class="awardsBy">Tested by <br>Matt Diggity</p>
+      </div>
+      <div class="box">
+        <p class="awards-title">FASTEST <br>WP</p>
+        <span class="brLine"></span>
+        <p class="awardsBy">Tested by <br>Kevin Ohashi</p>
+      </div>
+    </div>
+</body>
+
+</html>
+<style>
+  .page-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .awards-title,
+  .awardsBy,
+  .error-title,
+  .error-msg {
+    font-family: 'Montserrat', sans-serif;
+    text-align: center;
+  }
+
+
+  .error-title {
+    font-size: 46px;
+    font-weight: 900;
+  }
+
+  .error-msg {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+
+  .wpxRedirect {
+    font-weight: 700;
+    color: #FB5718;
+  }
+
+  .awards {
+    display: flex;
+    gap: 50px;
+    margin-top: 60px;
+  }
+
+  .awards-title {
+    font-weight: 700;
+    font-size: 22px;
+    width: 170px;
+    color: #96004e;
+  }
+
+  .awardsBy {
+    font-size: 16px;
+    font-weight: 400;
+  }
+
+  .brLine {
+    display: block;
+    width: 85%;
+    border: 1px solid #FB5718;
+    margin: -15px auto -5px;
+  }
+</style>
