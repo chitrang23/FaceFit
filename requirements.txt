@@ -1,0 +1,9 @@
+# requirements.txt
+
+opencv-python
+mediapipe
+numpy
+Pillow
+google-generativeai
+python-dotenv
+scikit-learn
