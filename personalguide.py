@@ -1,12 +1,3 @@
-# personalguide_vULTRA.py
-# FaceFit Ultra – Smart AI Stylist (lightweight, performance optimized)
-# - Connected to existing face_feature_extractor.py and trainmodel.py
-# - Hybrid ML + geometric face-shape detection
-# - Smart Gemini text parsing -> hairstyle & accessory highlights
-# - "View Suggested Hairstyles" and "🧠 Smart Re-Analyze" controls
-# - Caches AI reports & extracted keywords into ai_reports_cache.json
-# - No 'Gemini' mention in UI title
-
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import cv2
@@ -912,5 +903,8 @@ if __name__ == "__main__":
     if not os.path.exists(GEMINI_CACHE):
         safe_json_save(GEMINI_CACHE, {})
 
+if __name__ == "__main__":
     app = FaceFitUltraApp()
     app.mainloop()
+
+
