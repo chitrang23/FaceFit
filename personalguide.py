@@ -30,7 +30,7 @@ except ImportError:
 # ---------------------------
 # Config & Constants
 # ---------------------------
-APP_TITLE = "FaceFit Ultra - Smart AI Stylist (v3.0)"
+APP_TITLE = "FaceFit Ultra - Smart AI Stylist "
 VIDEO_WIDTH, VIDEO_HEIGHT = 670, 480
 ACCESSORY_DIR = "accessories"
 HAIRSTYLE_DIR = "hairstyles_dataset"
@@ -38,6 +38,12 @@ FAVORITES_DIR = "Favorites"
 AI_REPORTS_CACHE = "ai_reports_cache.json"
 GEMINI_CACHE = "gemini_cache.json"
 
+# Constants for new, stable features
+EYE_COLORS = {"Ocean Blue": (200, 100, 20), "Emerald Green": (50, 200, 50), "Hazel Brown": (40, 80, 140), "Violet": (180, 70, 160), "Amber": (0, 190, 255)}
+LEFT_IRIS_INDICES = [474, 475, 476, 477]
+RIGHT_IRIS_INDICES = [469, 470, 471, 472]
+
+# Original Constants
 ACCESSORY_KEYWORDS = {
     'Glasses / Sunglasses': ['glass', 'sun', 'spectacle', 'eye', 'frame', 'aviator', 'wayfarer'],
     'Hats / Headwear': ['cap', 'hat', 'fedora', 'beanie', 'headband', 'crown', 'brim'],
@@ -70,72 +76,69 @@ _load_ml_model()
 # Advanced Glam & AI Functions
 # ---------------------------
 def get_gemini_vision_report(api_key, image, face_shape, gender, skin_tone="N/A", extra_prompt=""):
-    """
-    Generates an AI style report with a more direct and professional prompt.
-    """
     try:
         if not api_key: raise RuntimeError("No API key")
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("models/gemini-pro-vision")
-        
+        model = genai.GenerativeModel("models/gemini-2.5-pro")
         prompt = f"""
-        You are a style consultant providing notes for a client. Based on the provided photo and information, create a concise, insightful style guide.
-        Your tone should be modern, direct, and encouraging.
-        **Strict Rules: Do not use personal names, greetings, or sign-offs. Avoid robotic or overly complimentary language.**
-
-        - **Client's Face Shape:** {face_shape}
-        - **Client's Gender:** {gender}
-        - **Client's Skin Tone (Est.):** {skin_tone}
-        - **Client's Vibe (Optional):** {extra_prompt}
-
+        You are a style consultant providing notes for a client. Based on the provided photo and information, create a concise, insightful style guide. Your tone should be modern, direct, and encouraging. **Strict Rules: Do not use personal names, greetings, or sign-offs. Avoid robotic or overly complimentary language.**
+        - **Client's Face Shape:** {face_shape} - **Client's Gender:** {gender} - **Client's Skin Tone (Est.):** {skin_tone} - **Client's Vibe (Optional):** {extra_prompt}
         ---
-
         **Style Analysis & Recommendations:**
-
-        **1. Vibe & Key Feature:**
-        - What is their overall style impression from the photo?
-        - Highlight one key feature and explain how it complements their face shape.
-
-        **2. Eyewear:**
-        - Suggest two distinct frame styles. Be specific about the style name (e.g., Aviator, Round, Cat-Eye).
-        - For each, briefly explain *why* it works for their face.
-
-        **3. Hairstyles:**
-        - Describe two different hairstyle ideas. Use descriptive terms (e.g., layered bob, textured quiff, side-swept bangs).
-        - Briefly explain the benefit of each style.
-
-        **4. Color Palette:**
-        - Recommend a palette of 4-5 colors that would suit their look, keeping their skin tone in mind.
+        **1. Vibe & Key Feature:** - What is their overall style impression from the photo? - Highlight one key feature and explain how it complements their face shape.
+        **2. Eyewear:** - Suggest two distinct frame styles. Be specific about the style name (e.g., Aviator, Round, Cat-Eye). - For each, briefly explain *why* it works for their face.
+        **3. Hairstyles:** - Describe two different hairstyle ideas. Use descriptive terms (e.g., layered bob, textured quiff, side-swept bangs). - Briefly explain the benefit of each style.
+        **4. Color Palette:** - Recommend a palette of 4-5 colors that would suit their look, keeping their skin tone in mind.
         """
-
-        response = model.generate_content([prompt, image])
-        return response.text
+        response = model.generate_content([prompt, image]); return response.text
     except Exception as e: return f"An error occurred while generating the AI report.\n\nError: {e}"
 
 def overlay_blend(background, overlay):
-    dark = 2.0 * background * overlay
-    bright = 1.0 - 2.0 * (1.0 - background) * (1.0 - overlay)
-    mask = background >= 0.5
-    result = np.zeros_like(background)
-    result[mask] = bright[mask]
-    result[~mask] = dark[~mask]
+    dark = 2.0 * background * overlay; bright = 1.0 - 2.0 * (1.0 - background) * (1.0 - overlay)
+    mask = background >= 0.5; result = np.zeros_like(background)
+    result[mask] = bright[mask]; result[~mask] = dark[~mask]
     return result
 
 def apply_lipstick(frame, landmarks, color_bgr, intensity=0.7):
-    h, w, _ = frame.shape
-    lip_points = np.array([[int(landmarks[i].x * w), int(landmarks[i].y * h)] for i in ALL_LIP_LANDMARKS], dtype=np.int32)
-    hull = cv2.convexHull(lip_points)
-    mask = np.zeros((h, w), dtype=np.uint8)
-    cv2.fillConvexPoly(mask, hull, 255)
-    mask = cv2.GaussianBlur(mask, (15, 15), 10)
-    frame_float = frame.astype(float) / 255.0
-    color_float = np.full_like(frame_float, np.array(color_bgr, dtype=float) / 255.0)
-    blended_float = overlay_blend(frame_float, color_float)
+    h, w, _ = frame.shape; lip_points = np.array([[int(landmarks[i].x * w), int(landmarks[i].y * h)] for i in ALL_LIP_LANDMARKS], dtype=np.int32)
+    hull = cv2.convexHull(lip_points); mask = np.zeros((h, w), dtype=np.uint8); cv2.fillConvexPoly(mask, hull, 255)
+    mask = cv2.GaussianBlur(mask, (15, 15), 10); frame_float = frame.astype(float) / 255.0
+    color_float = np.full_like(frame_float, np.array(color_bgr, dtype=float) / 255.0); blended_float = overlay_blend(frame_float, color_float)
     mask_float = np.stack([mask.astype(float) / 255.0]*3, axis=-1)
     result_float = (frame_float * (1 - mask_float)) + (blended_float * mask_float * intensity + frame_float * mask_float * (1 - intensity))
     return (result_float * 255).astype(np.uint8)
 
-# --- (All other helper functions remain the same) ---
+def apply_eye_color(frame, landmarks, color_bgr, intensity=0.65):
+    h, w, _ = frame.shape; frame_float = frame.astype(float) / 255.0
+    color_float = np.full_like(frame_float, np.array(color_bgr, dtype=float) / 255.0)
+    for indices in [LEFT_IRIS_INDICES, RIGHT_IRIS_INDICES]:
+        try:
+            iris_points = np.array([[int(landmarks[i].x * w), int(landmarks[i].y * h)] for i in indices], dtype=np.int32)
+            (cx, cy), radius = cv2.minEnclosingCircle(iris_points); center, radius = (int(cx), int(cy)), int(radius * 1.1)
+            if radius == 0: continue
+            mask = np.zeros((h, w), dtype=np.uint8); cv2.circle(mask, center, radius, 255, -1); mask = cv2.GaussianBlur(mask, (7, 7), 5)
+            mask_float = np.stack([mask.astype(float) / 255.0]*3, axis=-1); blended_float = overlay_blend(frame_float, color_float)
+            frame_float = (frame_float * (1 - mask_float)) + (blended_float * mask_float * intensity + frame_float * mask_float * (1 - intensity))
+        except Exception: continue
+    return (frame_float * 255).astype(np.uint8)
+
+def get_skin_tone_from_landmarks(frame, landmarks):
+    h, w, _ = frame.shape; points_idx = [117, 346, 10, 168]; colors = []
+    for pt_idx in points_idx:
+        try:
+            pt = landmarks[pt_idx]; cx, cy = int(pt.x * w), int(pt.y * h)
+            roi = frame[cy-2:cy+3, cx-2:cx+3]
+            if roi.size > 0: colors.append(np.mean(roi, axis=(0, 1)))
+        except Exception: continue
+    if not colors: return "N/A", None
+    avg_bgr = np.mean(colors, axis=0).astype(int); value = cv2.cvtColor(np.uint8([[avg_bgr]]), cv2.COLOR_BGR2HSV)[0][0][2]
+    if value < 70: tone_str = "Deep"
+    elif value < 140: tone_str = "Medium"
+    elif value < 200: tone_str = "Light"
+    else: tone_str = "Fair"
+    return f"{tone_str} (V:{value})", avg_bgr
+
+# --- (All other original helper functions remain the same) ---
 def safe_json_load(path):
     if not os.path.exists(path): return {}
     try:
@@ -163,17 +166,11 @@ def load_hairstyle_images():
             folder = os.path.join(HAIRSTYLE_DIR, g, s)
             styles[g][s] = glob.glob(os.path.join(folder, "*.*")) if os.path.exists(folder) else []
     return styles
-ACCESSORY_CATEGORIES = organize_accessories(); HAIRSTYLES = load_hairstyle_images()
 def process_accessory_image(img_bytes):
     arr = np.frombuffer(img_bytes, np.uint8); img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
     if img is None: return None
     if img.shape[2] == 3: b, g, r = cv2.split(img); alpha = np.full(b.shape, 255, dtype=b.dtype); img = cv2.merge((b, g, r, alpha))
     return img
-def detect_with_mediapipe(img):
-    try:
-        res = face_mesh.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        return res.multi_face_landmarks[0].landmark if res.multi_face_landmarks else None
-    except Exception: return None
 def get_face_shape_combined(landmarks, frame_w, frame_h):
     geo = get_face_shape_geometric(landmarks, frame_w, frame_h);
     if _ml_model and landmarks_to_feature_vector:
@@ -223,6 +220,7 @@ def overlay_necklace(bg,ov,lms_px,ovr):
     scale, rotation, x_off, y_off = _get_overlay_params(ovr); angle, jaw_width = get_angle_and_width(lms_px[130], lms_px[359]); cx, cy = lms_px[152][0], lms_px[152][1]; tw = int(jaw_width * 1.6 * scale); th = int(tw * (ov.shape[0]/ov.shape[1])) if ov.shape[1] > 0 else 0
     if tw*th == 0: return bg
     r = cv2.resize(ov, (tw, th)); M = cv2.getRotationMatrix2D((tw/2, th/2), angle + rotation, 1); rot = cv2.warpAffine(r, M, (tw, th)); _blend_transparent(bg, rot, int(cx - tw//2 + x_off), int(cy + th*0.2 + y_off)); return bg
+
 class WebcamCaptureThread(threading.Thread):
     def __init__(self, src=0):
         super().__init__(daemon=True); self.cap = cv2.VideoCapture(src, cv2.CAP_DSHOW); self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, VIDEO_WIDTH); self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, VIDEO_HEIGHT); self.frame, self.running, self.lock = None, False, threading.Lock()
@@ -236,96 +234,89 @@ class WebcamCaptureThread(threading.Thread):
     def read(self):
         with self.lock: return self.frame.copy() if self.frame is not None else None
     def stop(self): self.running = False
+
 class FaceFitUltraApp(tk.Tk):
     def __init__(self):
         super().__init__(); self.title(APP_TITLE); self.geometry("1100x760"); self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.video_stream = None; self.live_streaming = False; self.last_frame_raw = None; self.last_frame_composed = None; self.last_landmarks = None; self.pinned_image = None
         self.landmark_buffer = deque(maxlen=5); self.selected_accessories = {}; self.accessory_overrides = {}; self.selected_accessory_name = None; self.selected_lipstick_color = None
         self.gender_var = tk.StringVar(value="Female"); self.hair_gender_var = tk.StringVar(value="Female"); self.hair_shape_var = tk.StringVar(value="Oval"); self.personality_var = tk.StringVar(value="")
-        self.acc_search_var = tk.StringVar(); self.hair_search_var = tk.StringVar(); self.hairstyles = HAIRSTYLES; self.accessory_categories = ACCESSORY_CATEGORIES
+        self.acc_search_var = tk.StringVar(); self.hair_search_var = tk.StringVar(); self.hairstyles = {}; self.accessory_categories = {}
         self.smart_keywords = []; self.smart_colors = []; self.smart_accessory_cats = []; self._tooltip = None
-        os.makedirs(FAVORITES_DIR, exist_ok=True); os.makedirs(ACCESSORY_DIR, exist_ok=True);
-        
-        self.configure(bg="#2E2E2E")
-        self._apply_styles()
-        self._build_ui()
-
-        self.after(60, self._load_accessories_list); self.acc_search_var.trace_add("write", lambda *a: self._filter_accessories_list()); self.hair_search_var.trace_add("write", lambda *a: self._filter_hairstyles_list())
+        os.makedirs(FAVORITES_DIR, exist_ok=True); os.makedirs(ACCESSORY_DIR, exist_ok=True)
+        self.selected_eye_color = None
+        self.skin_tone_var = tk.StringVar(value="N/A")
+        self.configure(bg="#2E2E2E"); self._apply_styles(); self._build_ui()
+        self.after(100, self._load_initial_data)
+        self.acc_search_var.trace_add("write", lambda *a: self._filter_accessories_list()); self.hair_search_var.trace_add("write", lambda *a: self._filter_hairstyles_list())
 
     def _apply_styles(self):
-        BG_COLOR = "#2E2E2E"
-        FG_COLOR = "#FFFFFF"
-        ACCENT_COLOR = "#00A99D" # Main accent color
-        WIDGET_BG = "#3C3C3C"
-        
-        style = ttk.Style(self)
-        style.theme_use('clam')
-
-        style.configure(".", background=BG_COLOR, foreground=FG_COLOR, font=('Calibri', 10))
-        style.configure("TFrame", background=BG_COLOR)
-        style.configure("TLabel", background=BG_COLOR, foreground=FG_COLOR)
-        style.configure("TLabelframe", background=BG_COLOR, bordercolor=WIDGET_BG)
-        style.configure("TLabelframe.Label", background=BG_COLOR, foreground=FG_COLOR, font=('Calibri', 11, 'bold'))
-        
-        style.configure("TButton", background=ACCENT_COLOR, foreground="white", borderwidth=0, font=('Calibri', 10, 'bold'))
-        style.map("TButton", background=[('active', '#007D74')])
-
-        # --- THIS IS THE FIX ---
-        style.configure("Accent.TButton", foreground="#00D2C2", background=BG_COLOR, bordercolor="#00D2C2", borderwidth=2, font=('Calibri', 11, 'bold'))
-        style.map("Accent.TButton", background=[('active', '#007D74')], foreground=[('active', 'white')])
-        
-        style.configure("TNotebook", background=BG_COLOR, borderwidth=0)
-        style.configure("TNotebook.Tab", background=WIDGET_BG, foreground="#A9A9A9", borderwidth=0, padding=[10,5])
-        style.map("TNotebook.Tab", background=[("selected", ACCENT_COLOR)], foreground=[("selected", "white")])
-
-        self.option_add("*TCombobox*Listbox*background", WIDGET_BG)
-        self.option_add("*TCombobox*Listbox*foreground", FG_COLOR)
-        style.configure("TCombobox", fieldbackground=WIDGET_BG, background=WIDGET_BG, foreground=FG_COLOR, arrowcolor=FG_COLOR, bordercolor=WIDGET_BG)
-        style.map('TCombobox', fieldbackground=[('readonly', WIDGET_BG)])
+        BG_COLOR="#2E2E2E";FG_COLOR="#FFFFFF";ACCENT_COLOR="#00A99D";WIDGET_BG="#3C3C3C"
+        s = ttk.Style(self); s.theme_use('clam')
+        s.configure(".", background=BG_COLOR, foreground=FG_COLOR, font=('Calibri', 10))
+        s.configure("TFrame", background=BG_COLOR); s.configure("TLabel", background=BG_COLOR, foreground=FG_COLOR)
+        s.configure("TLabelframe", background=BG_COLOR, bordercolor=WIDGET_BG); s.configure("TLabelframe.Label", background=BG_COLOR, foreground=FG_COLOR, font=('Calibri', 11, 'bold'))
+        s.configure("TButton", background=ACCENT_COLOR, foreground="white", borderwidth=0, font=('Calibri', 10, 'bold')); s.map("TButton", background=[('active', '#007D74')])
+        s.configure("Accent.TButton", foreground="#00D2C2", background=BG_COLOR, bordercolor="#00D2C2", borderwidth=2, font=('Calibri', 11, 'bold')); s.map("Accent.TButton", background=[('active', '#007D74')], foreground=[('active', 'white')])
+        s.configure("TNotebook", background=BG_COLOR, borderwidth=0); s.configure("TNotebook.Tab", background=WIDGET_BG, foreground="#A9A9A9", borderwidth=0, padding=[10,5]); s.map("TNotebook.Tab", background=[("selected", ACCENT_COLOR)], foreground=[("selected", "white")])
+        s.configure("TCheckbutton", background=BG_COLOR, foreground=FG_COLOR, font=('Calibri', 10)); s.map("TCheckbutton", background=[('active', BG_COLOR)], indicatorcolor=[('selected', ACCENT_COLOR), ('!selected', WIDGET_BG)])
+        self.option_add("*TCombobox*Listbox*background", WIDGET_BG); self.option_add("*TCombobox*Listbox*foreground", FG_COLOR)
+        s.configure("TCombobox", fieldbackground=WIDGET_BG, background=WIDGET_BG, foreground=FG_COLOR, arrowcolor=FG_COLOR, bordercolor=WIDGET_BG); s.map('TCombobox', fieldbackground=[('readonly', WIDGET_BG)])
         self.option_add("*TListbox*background", WIDGET_BG); self.option_add("*TListbox*foreground", FG_COLOR)
         self.option_add("*TEntry*background", WIDGET_BG); self.option_add("*TEntry*foreground", FG_COLOR); self.option_add("*TEntry*fieldbackground", WIDGET_BG)
-        style.configure("Vertical.TScrollbar", background=WIDGET_BG, troughcolor=BG_COLOR, arrowcolor=FG_COLOR)
+        s.configure("Vertical.TScrollbar", background=WIDGET_BG, troughcolor=BG_COLOR, arrowcolor=FG_COLOR)
 
     def _build_ui(self):
-        main = ttk.Panedwindow(self, orient=tk.HORIZONTAL); main.pack(fill=tk.BOTH, expand=True, padx=8, pady=8); left = ttk.Frame(main); right = ttk.Frame(main); main.add(left, weight=3); main.add(right, weight=1); self.left_nb = ttk.Notebook(left); self.left_nb.pack(fill=tk.BOTH, expand=True); cam_frame = ttk.Frame(self.left_nb); upload_frame = ttk.Frame(self.left_nb); self.left_nb.add(cam_frame, text="📹 Live"); self.left_nb.add(upload_frame, text="🖼️ Upload"); self.vid_lbl = ttk.Label(cam_frame, background="black"); self.vid_lbl.pack(fill=tk.BOTH, expand=True); up_ctrl = ttk.Frame(upload_frame); up_ctrl.pack(fill=tk.X, padx=6, pady=6); ttk.Button(up_ctrl, text="Load Photo", command=self.load_image_file).pack(side=tk.LEFT); self.static_lbl = ttk.Label(upload_frame, background="black"); self.static_lbl.pack(fill=tk.BOTH, expand=True); ctrl_fr = ttk.LabelFrame(right, text="Controls"); ctrl_fr.pack(fill=tk.X, padx=5, pady=5); ctrl_grid = ttk.Frame(ctrl_fr); ctrl_grid.pack(fill=tk.X, padx=2, pady=2); ctrl_grid.columnconfigure((0,1), weight=1); ttk.Button(ctrl_grid, text="Start Cam", command=self.start_webcam).grid(row=0, column=0, sticky='ew', padx=2); ttk.Button(ctrl_grid, text="Stop Cam", command=self.stop_webcam).grid(row=0, column=1, sticky='ew', padx=2); ttk.Button(ctrl_grid, text="Save Look", command=self.save_favorite_look).grid(row=1, column=0, columnspan=2, sticky='ew', padx=2, pady=(4,0)); ttk.Button(ctrl_grid, text="📌 Pin Look", command=self._pin_look).grid(row=2, column=0, sticky='ew', padx=2, pady=(4,0)); ttk.Button(ctrl_grid, text="🔄 A/B Compare", command=self._compare_look).grid(row=2, column=1, sticky='ew', padx=2, pady=(4,0)); vibe_fr = ttk.Frame(ctrl_fr); vibe_fr.pack(fill=tk.X, pady=(6,2), padx=4); ttk.Label(vibe_fr, text="Your vibe:").pack(side=tk.LEFT, padx=(2,6)); ttk.Entry(vibe_fr, textvariable=self.personality_var, width=18).pack(side=tk.LEFT, fill=tk.X, expand=True); self.right_nb = ttk.Notebook(right); self.right_nb.pack(fill=tk.BOTH, expand=True, pady=6); self.tab_ai = ttk.Frame(self.right_nb); self.tab_tryon = ttk.Frame(self.right_nb); self.tab_hair = ttk.Frame(self.right_nb); self.tab_favorites = ttk.Frame(self.right_nb); self.tab_glam = ttk.Frame(self.right_nb); self.right_nb.add(self.tab_ai, text="⭐ AI Profile"); self.right_nb.add(self.tab_tryon, text="👓 Try-On"); self.right_nb.add(self.tab_hair, text="💇 Hairstyles"); self.right_nb.add(self.tab_favorites, text="💖 Favorites"); self.right_nb.add(self.tab_glam, text="💄 Glam"); self.right_nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
-        prof_fr = ttk.LabelFrame(self.tab_ai, text="1. Your Profile"); prof_fr.pack(fill=tk.X, padx=6, pady=6); ttk.Label(prof_fr, text="Gender:").grid(row=0, column=0, sticky='w', padx=5); ttk.Combobox(prof_fr, textvariable=self.gender_var, values=['Female','Male','Other'], state='readonly').grid(row=0, column=1, sticky='ew', padx=5); ttk.Button(self.tab_ai, text="Generate AI Style Profile", command=self.run_gemini_analysis, style="Accent.TButton").pack(fill=tk.X, padx=6, pady=(4,8)); self.rep_frame = ttk.LabelFrame(self.tab_ai, text="3. Your AI Style Guide"); self.rep_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=6); rep_scroll_y = ttk.Scrollbar(self.rep_frame, orient=tk.VERTICAL); self.rep_txt = tk.Text(self.rep_frame, wrap=tk.WORD, height=12, yscrollcommand=rep_scroll_y.set, bg="#3C3C3C", fg="white", insertbackground="white", borderwidth=0, relief="flat"); rep_scroll_y.config(command=self.rep_txt.yview); rep_scroll_y.pack(side=tk.RIGHT, fill=tk.Y); self.rep_txt.pack(fill=tk.BOTH, expand=True, padx=5, pady=5); self.rep_txt.tag_configure("keyword", foreground="#00D2C2", underline=True); self.rep_txt.tag_bind("keyword", "<Button-1>", self._on_keyword_click); self.rep_txt.tag_bind("keyword", "<Enter>", lambda e: self.rep_txt.config(cursor="hand2")); self.rep_txt.tag_bind("keyword", "<Leave>", lambda e: self.rep_txt.config(cursor="")); ttk.Button(self.rep_frame, text="Export Report as PNG", command=self._export_report).pack(fill=tk.X, padx=6, pady=(10,6))
-        
-        acc_fr = ttk.LabelFrame(self.tab_tryon, text="Select Accessory"); acc_fr.pack(fill=tk.BOTH, expand=True, padx=6, pady=6); 
-        acc_search_clear_fr = ttk.Frame(acc_fr); acc_search_clear_fr.pack(fill=tk.X, padx=6, pady=4)
-        ttk.Entry(acc_search_clear_fr, textvariable=self.acc_search_var).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(acc_search_clear_fr, text="Clear", command=self._clear_accessories, width=7).pack(side=tk.LEFT, padx=(5,0))
-        
-        self.cat_var = tk.StringVar(); self.cat_cb = ttk.Combobox(acc_fr, textvariable=self.cat_var, state='readonly'); self.cat_cb.pack(fill=tk.X, padx=6, pady=4); self.cat_cb.bind('<<ComboboxSelected>>', self._load_accessories_by_category); self.acc_lb = tk.Listbox(acc_fr, height=8, exportselection=False, borderwidth=0, relief="flat", highlightthickness=0); self.acc_lb.pack(fill=tk.BOTH, expand=True, padx=6, pady=4); self.acc_lb.bind('<<ListboxSelect>>', self._on_accessory_select); ttk.Button(acc_fr, text="Manage Accessories...", command=self._open_accessory_manager).pack(fill=tk.X, padx=6, pady=4); self.slider_frame = ttk.LabelFrame(self.tab_tryon, text="Adjustments"); self.slider_frame.pack(fill=tk.X, padx=6, pady=6); self.scale_var = tk.DoubleVar(value=1.0); self.rot_var = tk.DoubleVar(value=0.0); self.x_var = tk.DoubleVar(value=0.0); self.y_var = tk.DoubleVar(value=0.0); ttk.Label(self.slider_frame, text="Scale").grid(row=0, column=0, padx=5); ttk.Scale(self.slider_frame, from_=0.2, to=3.0, variable=self.scale_var, command=lambda v: self._on_slider_change(v, 'scale_factor')).grid(row=0, column=1, sticky='ew'); ttk.Label(self.slider_frame, text="Rotate").grid(row=1, column=0, padx=5); ttk.Scale(self.slider_frame, from_=-45, to=45, variable=self.rot_var, command=lambda v: self._on_slider_change(v, 'rotation')).grid(row=1, column=1, sticky='ew'); ttk.Label(self.slider_frame, text="X-Offset").grid(row=2, column=0, padx=5); ttk.Scale(self.slider_frame, from_=-100, to=100, variable=self.x_var, command=lambda v: self._on_slider_change(v, 'x_offset')).grid(row=2, column=1, sticky='ew'); ttk.Label(self.slider_frame, text="Y-Offset").grid(row=3, column=0, padx=5); ttk.Scale(self.slider_frame, from_=-100, to=100, variable=self.y_var, command=lambda v: self._on_slider_change(v, 'y_offset')).grid(row=3, column=1, sticky='ew'); self.slider_frame.columnconfigure(1, weight=1)
-        hair_ctrl_fr = ttk.LabelFrame(self.tab_hair, text="Find Your Style"); hair_ctrl_fr.pack(fill=tk.X, padx=6, pady=6); ttk.Label(hair_ctrl_fr, text="Search:").grid(row=0, column=0, padx=5, pady=2, sticky='w'); ttk.Entry(hair_ctrl_fr, textvariable=self.hair_search_var).grid(row=0, column=1, sticky='ew', padx=5, pady=2); ttk.Label(hair_ctrl_fr, text="Gender:").grid(row=1, column=0, padx=5, pady=2, sticky='w'); ttk.Combobox(hair_ctrl_fr, textvariable=self.hair_gender_var, values=['Female','Male','Other'], state='readonly').grid(row=1, column=1, padx=5, pady=2); ttk.Label(hair_ctrl_fr, text="Face Shape:").grid(row=2, column=0, padx=5, pady=2, sticky='w'); ttk.Combobox(hair_ctrl_fr, textvariable=self.hair_shape_var, values=['Oval','Round','Square','Heart'], state='readonly').grid(row=2, column=1, padx=5, pady=2); ttk.Button(hair_ctrl_fr, text="Find Hairstyles", command=self._manual_hairstyle_search).grid(row=3, column=0, columnspan=2, sticky='ew', padx=5, pady=6); self.hair_gallery_fr = ttk.LabelFrame(self.tab_hair, text="Suggestions"); self.hair_gallery_fr.pack(fill=tk.BOTH, expand=True, padx=6, pady=6); self.hair_canvas = tk.Canvas(self.hair_gallery_fr, bg="#2E2E2E", highlightthickness=0); self.hair_scrollbar = ttk.Scrollbar(self.hair_gallery_fr, orient="vertical", command=self.hair_canvas.yview); self.scrollable_hair_frame = ttk.Frame(self.hair_canvas); self.scrollable_hair_frame.bind("<Configure>", lambda e: self.hair_canvas.configure(scrollregion=self.hair_canvas.bbox("all"))); self.hair_canvas.create_window((0,0), window=self.scrollable_hair_frame, anchor="nw"); self.hair_canvas.configure(yscrollcommand=self.hair_scrollbar.set); self.hair_canvas.pack(side="left", fill="both", expand=True); self.hair_scrollbar.pack(side="right", fill="y")
-        self.fav_gallery_fr = ttk.LabelFrame(self.tab_favorites, text="Your Saved Looks"); self.fav_gallery_fr.pack(fill=tk.BOTH, expand=True, padx=6, pady=6); self.fav_canvas = tk.Canvas(self.fav_gallery_fr, bg="#2E2E2E", highlightthickness=0); self.fav_scrollbar = ttk.Scrollbar(self.fav_gallery_fr, orient="vertical", command=self.fav_canvas.yview); self.scrollable_fav_frame = ttk.Frame(self.fav_canvas); self.scrollable_fav_frame.bind("<Configure>", lambda e: self.fav_canvas.configure(scrollregion=self.fav_canvas.bbox("all"))); self.fav_canvas.create_window((0,0), window=self.scrollable_fav_frame, anchor="nw"); self.fav_canvas.configure(yscrollcommand=self.fav_scrollbar.set); self.fav_canvas.pack(side="left", fill="both", expand=True); self.fav_scrollbar.pack(side="right", fill="y")
-        lip_fr = ttk.LabelFrame(self.tab_glam, text="Virtual Lipstick"); lip_fr.pack(fill=tk.X, padx=6, pady=6, ipady=5); lip_color_grid = ttk.Frame(lip_fr); lip_color_grid.pack(pady=5)
-        for i, (name, bgr) in enumerate(LIPSTICK_COLORS.items()):
-            swatch = tk.Canvas(lip_color_grid, width=30, height=30, bg=f'#{bgr[2]:02x}{bgr[1]:02x}{bgr[0]:02x}', relief='raised', borderwidth=2, cursor="hand2", highlightthickness=0)
-            swatch.grid(row=0, column=i, padx=5, pady=5); swatch.bind("<Button-1>", lambda e, c=bgr: self._select_lipstick_color(c)); swatch.bind("<Enter>", lambda e, t=name: self._show_tooltip(e.widget, t)); swatch.bind("<Leave>", lambda e: self._hide_tooltip())
-        ttk.Button(lip_fr, text="Remove Lipstick", command=lambda: self._select_lipstick_color(None)).pack(fill=tk.X, padx=5, pady=(10, 5));
-    
-    def _clear_accessories(self):
-        """NEW method to clear selected accessories."""
-        self.selected_accessories.clear()
-        self.selected_accessory_name = None
-        self.acc_lb.selection_clear(0, tk.END) # Deselect in listbox
-        if not self.live_streaming and self.last_frame_raw is not None:
-            self.refresh_static_image()
+        main = ttk.Panedwindow(self, orient=tk.HORIZONTAL); main.pack(fill=tk.BOTH, expand=True, padx=8, pady=8); left = ttk.Frame(main); right = ttk.Frame(main); main.add(left, weight=3); main.add(right, weight=1)
+        self.left_nb = ttk.Notebook(left); self.left_nb.pack(fill=tk.BOTH, expand=True); cam_frame = ttk.Frame(self.left_nb); upload_frame = ttk.Frame(self.left_nb); self.left_nb.add(cam_frame, text="📹 Live"); self.left_nb.add(upload_frame, text="🖼️ Upload")
+        self.vid_lbl = ttk.Label(cam_frame, background="black"); self.vid_lbl.pack(fill=tk.BOTH, expand=True); up_ctrl = ttk.Frame(upload_frame); up_ctrl.pack(fill=tk.X, padx=6, pady=6); ttk.Button(up_ctrl, text="Load Photo", command=self.load_image_file).pack(side=tk.LEFT); self.static_lbl = ttk.Label(upload_frame, background="black"); self.static_lbl.pack(fill=tk.BOTH, expand=True)
+        ctrl_fr = ttk.LabelFrame(right, text="Controls"); ctrl_fr.pack(fill=tk.X, padx=5, pady=5); ctrl_grid = ttk.Frame(ctrl_fr); ctrl_grid.pack(fill=tk.X, padx=2, pady=2); ctrl_grid.columnconfigure((0,1), weight=1); ttk.Button(ctrl_grid, text="Start Cam", command=self.start_webcam).grid(row=0, column=0, sticky='ew', padx=2); ttk.Button(ctrl_grid, text="Stop Cam", command=self.stop_webcam).grid(row=0, column=1, sticky='ew', padx=2); ttk.Button(ctrl_grid, text="Save Look", command=self.save_favorite_look).grid(row=1, column=0, columnspan=2, sticky='ew', padx=2, pady=(4,0)); ttk.Button(ctrl_grid, text="📌 Pin Look", command=self._pin_look).grid(row=2, column=0, sticky='ew', padx=2, pady=(4,0)); ttk.Button(ctrl_grid, text="🔄 A/B Compare", command=self._compare_look).grid(row=2, column=1, sticky='ew', padx=2, pady=(4,0)); vibe_fr = ttk.Frame(ctrl_fr); vibe_fr.pack(fill=tk.X, pady=(6,2), padx=4); ttk.Label(vibe_fr, text="Your vibe:").pack(side=tk.LEFT, padx=(2,6)); ttk.Entry(vibe_fr, textvariable=self.personality_var, width=18).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.right_nb = ttk.Notebook(right); self.right_nb.pack(fill=tk.BOTH, expand=True, pady=6); self.tab_ai = ttk.Frame(self.right_nb); self.tab_tryon = ttk.Frame(self.right_nb); self.tab_hair = ttk.Frame(self.right_nb); self.tab_favorites = ttk.Frame(self.right_nb); self.tab_glam = ttk.Frame(self.right_nb); self.right_nb.add(self.tab_ai, text="⭐ AI Profile"); self.right_nb.add(self.tab_tryon, text="👓 Try-On"); self.right_nb.add(self.tab_hair, text="💇 Hairstyles"); self.right_nb.add(self.tab_favorites, text="💖 Favorites"); self.right_nb.add(self.tab_glam, text="💄 Glam"); self.right_nb.bind("<<NotebookTabChanged>>", self._on_tab_change)
+        self._build_ai_tab(); self._build_tryon_tab(); self._build_hair_tab(); self._build_favorites_tab(); self._build_glam_tab()
 
-    def _select_lipstick_color(self, color):
-        self.selected_lipstick_color = color
+    def _build_ai_tab(self):
+        prof_fr = ttk.LabelFrame(self.tab_ai, text="1. Your Profile"); prof_fr.pack(fill=tk.X, padx=6, pady=6); prof_fr.columnconfigure(1, weight=1); ttk.Label(prof_fr, text="Gender:").grid(row=0, column=0, sticky='w', padx=5, pady=2); ttk.Combobox(prof_fr, textvariable=self.gender_var, values=['Female','Male','Other'], state='readonly').grid(row=0, column=1, sticky='ew', padx=5, pady=2)
+        ttk.Label(prof_fr, text="Skin Tone (Est.):").grid(row=1, column=0, sticky='w', padx=5, pady=2); ttk.Label(prof_fr, textvariable=self.skin_tone_var, font=('Calibri', 10, 'bold'), foreground="#00D2C2").grid(row=1, column=1, sticky='w', padx=5, pady=2)
+        ttk.Button(self.tab_ai, text="Generate AI Style Profile", command=self.run_gemini_analysis, style="Accent.TButton").pack(fill=tk.X, padx=6, pady=(4,8)); self.rep_frame = ttk.LabelFrame(self.tab_ai, text="3. Your AI Style Guide"); self.rep_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=6); rep_scroll_y = ttk.Scrollbar(self.rep_frame, orient=tk.VERTICAL); self.rep_txt = tk.Text(self.rep_frame, wrap=tk.WORD, height=12, yscrollcommand=rep_scroll_y.set, bg="#3C3C3C", fg="white", insertbackground="white", borderwidth=0, relief="flat"); rep_scroll_y.config(command=self.rep_txt.yview); rep_scroll_y.pack(side=tk.RIGHT, fill=tk.Y); self.rep_txt.pack(fill=tk.BOTH, expand=True, padx=5, pady=5); self.rep_txt.tag_configure("keyword", foreground="#00D2C2", underline=True); self.rep_txt.tag_bind("keyword", "<Button-1>", self._on_keyword_click); self.rep_txt.tag_bind("keyword", "<Enter>", lambda e: self.rep_txt.config(cursor="hand2")); self.rep_txt.tag_bind("keyword", "<Leave>", lambda e: self.rep_txt.config(cursor="")); ttk.Button(self.rep_frame, text="Export Report as PNG", command=self._export_report).pack(fill=tk.X, padx=6, pady=(10,6))
+
+    def _build_tryon_tab(self):
+        acc_fr = ttk.LabelFrame(self.tab_tryon, text="Select Accessory"); acc_fr.pack(fill=tk.BOTH, expand=True, padx=6, pady=6); acc_search_clear_fr = ttk.Frame(acc_fr); acc_search_clear_fr.pack(fill=tk.X, padx=6, pady=4); ttk.Entry(acc_search_clear_fr, textvariable=self.acc_search_var).pack(side=tk.LEFT, fill=tk.X, expand=True); ttk.Button(acc_search_clear_fr, text="Clear", command=self._clear_accessories, width=7).pack(side=tk.LEFT, padx=(5,0))
+        self.cat_var = tk.StringVar(); self.cat_cb = ttk.Combobox(acc_fr, textvariable=self.cat_var, state='readonly'); self.cat_cb.pack(fill=tk.X, padx=6, pady=4); self.cat_cb.bind('<<ComboboxSelected>>', self._load_accessories_by_category); self.acc_lb = tk.Listbox(acc_fr, height=8, exportselection=False, borderwidth=0, relief="flat", highlightthickness=0); self.acc_lb.pack(fill=tk.BOTH, expand=True, padx=6, pady=4); self.acc_lb.bind('<<ListboxSelect>>', self._on_accessory_select); ttk.Button(acc_fr, text="Manage Accessories...", command=self._open_accessory_manager).pack(fill=tk.X, padx=6, pady=4); self.slider_frame = ttk.LabelFrame(self.tab_tryon, text="Adjustments"); self.slider_frame.pack(fill=tk.X, padx=6, pady=6); self.scale_var = tk.DoubleVar(value=1.0); self.rot_var = tk.DoubleVar(value=0.0); self.x_var = tk.DoubleVar(value=0.0); self.y_var = tk.DoubleVar(value=0.0); ttk.Label(self.slider_frame, text="Scale").grid(row=0, column=0, padx=5); ttk.Scale(self.slider_frame, from_=0.2, to=3.0, variable=self.scale_var, command=lambda v: self._on_slider_change(v, 'scale_factor')).grid(row=0, column=1, sticky='ew'); ttk.Label(self.slider_frame, text="Rotate").grid(row=1, column=0, padx=5); ttk.Scale(self.slider_frame, from_=-45, to=45, variable=self.rot_var, command=lambda v: self._on_slider_change(v, 'rotation')).grid(row=1, column=1, sticky='ew'); ttk.Label(self.slider_frame, text="X-Offset").grid(row=2, column=0, padx=5); ttk.Scale(self.slider_frame, from_=-100, to=100, variable=self.x_var, command=lambda v: self._on_slider_change(v, 'x_offset')).grid(row=2, column=1, sticky='ew'); ttk.Label(self.slider_frame, text="Y-Offset").grid(row=3, column=0, padx=5); ttk.Scale(self.slider_frame, from_=-100, to=100, variable=self.y_var, command=lambda v: self._on_slider_change(v, 'y_offset')).grid(row=3, column=1, sticky='ew'); self.slider_frame.columnconfigure(1, weight=1)
+
+    def _build_hair_tab(self):
+        hair_ctrl_fr = ttk.LabelFrame(self.tab_hair, text="Find Your Style"); hair_ctrl_fr.pack(fill=tk.X, padx=6, pady=6); ttk.Label(hair_ctrl_fr, text="Search:").grid(row=0, column=0, padx=5, pady=2, sticky='w'); ttk.Entry(hair_ctrl_fr, textvariable=self.hair_search_var).grid(row=0, column=1, sticky='ew', padx=5, pady=2); ttk.Label(hair_ctrl_fr, text="Gender:").grid(row=1, column=0, padx=5, pady=2, sticky='w'); ttk.Combobox(hair_ctrl_fr, textvariable=self.hair_gender_var, values=['Female','Male','Other'], state='readonly').grid(row=1, column=1, padx=5, pady=2); ttk.Label(hair_ctrl_fr, text="Face Shape:").grid(row=2, column=0, padx=5, pady=2, sticky='w'); ttk.Combobox(hair_ctrl_fr, textvariable=self.hair_shape_var, values=['Oval','Round','Square','Heart'], state='readonly').grid(row=2, column=1, padx=5, pady=2); ttk.Button(hair_ctrl_fr, text="Find Hairstyles", command=self._manual_hairstyle_search).grid(row=3, column=0, columnspan=2, sticky='ew', padx=5, pady=6); self.hair_gallery_fr = ttk.LabelFrame(self.tab_hair, text="Suggestions"); self.hair_gallery_fr.pack(fill=tk.BOTH, expand=True, padx=6, pady=6); self.hair_canvas = tk.Canvas(self.hair_gallery_fr, bg="#2E2E2E", highlightthickness=0); self.hair_scrollbar = ttk.Scrollbar(self.hair_gallery_fr, orient="vertical", command=self.hair_canvas.yview); self.scrollable_hair_frame = ttk.Frame(self.hair_canvas); self.scrollable_hair_frame.bind("<Configure>", lambda e: self.hair_canvas.configure(scrollregion=self.hair_canvas.bbox("all"))); self.hair_canvas.create_window((0,0), window=self.scrollable_hair_frame, anchor="nw"); self.hair_canvas.configure(yscrollcommand=self.hair_scrollbar.set); self.hair_canvas.pack(side="left", fill="both", expand=True); self.hair_scrollbar.pack(side="right", fill="y")
+
+    def _build_favorites_tab(self):
+        self.fav_gallery_fr = ttk.LabelFrame(self.tab_favorites, text="Your Saved Looks"); self.fav_gallery_fr.pack(fill=tk.BOTH, expand=True, padx=6, pady=6); self.fav_canvas = tk.Canvas(self.fav_gallery_fr, bg="#2E2E2E", highlightthickness=0); self.fav_scrollbar = ttk.Scrollbar(self.fav_gallery_fr, orient="vertical", command=self.fav_canvas.yview); self.scrollable_fav_frame = ttk.Frame(self.fav_canvas); self.scrollable_fav_frame.bind("<Configure>", lambda e: self.fav_canvas.configure(scrollregion=self.fav_canvas.bbox("all"))); self.fav_canvas.create_window((0,0), window=self.scrollable_fav_frame, anchor="nw"); self.fav_canvas.configure(yscrollcommand=self.fav_scrollbar.set); self.fav_canvas.pack(side="left", fill="both", expand=True); self.fav_scrollbar.pack(side="right", fill="y")
+
+    def _build_glam_tab(self):
+        lip_fr = ttk.LabelFrame(self.tab_glam, text="Virtual Lipstick"); lip_fr.pack(fill=tk.X, padx=6, pady=6, ipady=5); self._create_swatches(lip_fr, LIPSTICK_COLORS, self._select_lipstick_color); ttk.Button(lip_fr, text="Remove Lipstick", command=lambda: self._select_lipstick_color(None)).pack(fill=tk.X, padx=5, pady=(10, 5));
+        eye_fr = ttk.LabelFrame(self.tab_glam, text="Virtual Eye Color"); eye_fr.pack(fill=tk.X, padx=6, pady=6, ipady=5); self._create_swatches(eye_fr, EYE_COLORS, self._select_eye_color); ttk.Button(eye_fr, text="Remove Eye Color", command=lambda: self._select_eye_color(None)).pack(fill=tk.X, padx=5, pady=(10, 5))
+
+    def _create_swatches(self, parent, colors, command):
+        grid = ttk.Frame(parent); grid.pack(pady=5)
+        for i, (name, bgr) in enumerate(colors.items()):
+            swatch = tk.Canvas(grid, width=30, height=30, bg=f'#{bgr[2]:02x}{bgr[1]:02x}{bgr[0]:02x}', relief='raised', borderwidth=2, cursor="hand2", highlightthickness=0)
+            swatch.grid(row=0, column=i, padx=5, pady=5); swatch.bind("<Button-1>", lambda e, c=bgr: command(c)); swatch.bind("<Enter>", lambda e, t=name: self._show_tooltip(e.widget, t)); swatch.bind("<Leave>", lambda e: self._hide_tooltip())
+
+    def _load_initial_data(self):
+        self.hairstyles = load_hairstyle_images(); self.accessory_categories = organize_accessories()
+        cats = ["All"] + list(self.accessory_categories.keys())
+        self.cat_cb.config(values=cats); self.cat_var.set("All"); self._filter_accessories_list()
+
+    def _clear_accessories(self): self.selected_accessories.clear(); self.selected_accessory_name = None; self.acc_lb.selection_clear(0, tk.END); self.refresh_static_image_if_needed()
+    def _select_lipstick_color(self, color): self.selected_lipstick_color = color; self.refresh_static_image_if_needed()
+    def _select_eye_color(self, color): self.selected_eye_color = color; self.refresh_static_image_if_needed()
+    def refresh_static_image_if_needed(self):
         if not self.live_streaming and self.last_frame_raw is not None: self.refresh_static_image()
     def _on_tab_change(self, event):
-        selected_tab_id = self.right_nb.select()
-        if selected_tab_id and self.right_nb.tab(selected_tab_id, "text") == "💖 Favorites": self._load_favorites_gallery()
+        if self.right_nb.tab(self.right_nb.select(), "text") == "💖 Favorites": self._load_favorites_gallery()
     def _on_slider_change(self, value, param_name):
         if self.selected_accessory_name:
             ovr = self.accessory_overrides.setdefault(self.selected_accessory_name, {}); ovr[param_name] = float(value)
-            if not self.live_streaming and self.last_frame_raw is not None: self.refresh_static_image()
+            self.refresh_static_image_if_needed()
     def start_webcam(self):
-        if not self.live_streaming:
-            self.video_stream = WebcamCaptureThread(); self.video_stream.start(); self.live_streaming = True
-            self.landmark_buffer.clear(); self.left_nb.select(0); self._update_webcam_loop()
+        if not self.live_streaming: self.video_stream = WebcamCaptureThread(); self.video_stream.start(); self.live_streaming = True; self.landmark_buffer.clear(); self.left_nb.select(0); self._update_webcam_loop()
     def stop_webcam(self):
         if self.live_streaming:
             try: self.video_stream.stop()
@@ -353,19 +344,24 @@ class FaceFitUltraApp(tk.Tk):
         imgtk = ImageTk.PhotoImage(Image.fromarray(cv2.cvtColor(comp, cv2.COLOR_BGR2RGB)))
         self.static_lbl.imgtk = imgtk; self.static_lbl.configure(image=imgtk)
     def process_frame_for_tryon(self, fr):
-        comp = fr.copy(); rgb_frame = cv2.cvtColor(comp, cv2.COLOR_BGR2RGB)
-        face_results = face_mesh.process(rgb_frame)
+        comp = fr.copy()
+        rgb_frame = cv2.cvtColor(fr, cv2.COLOR_BGR2RGB); face_results = face_mesh.process(rgb_frame)
         if face_results.multi_face_landmarks: self.landmark_buffer.append(face_results.multi_face_landmarks[0].landmark)
         if not self.landmark_buffer: return comp
-        avg_landmarks = list(self.landmark_buffer[0]); num_landmarks_in_buffer = len(self.landmark_buffer[0])
-        for i in range(num_landmarks_in_buffer):
+        avg_landmarks = list(self.landmark_buffer[0]); num_landmarks = len(avg_landmarks)
+        for i in range(num_landmarks):
             x = sum(lm[i].x for lm in self.landmark_buffer) / len(self.landmark_buffer); y = sum(lm[i].y for lm in self.landmark_buffer) / len(self.landmark_buffer); z = sum(lm[i].z for lm in self.landmark_buffer) / len(self.landmark_buffer)
             avg_landmarks[i].x, avg_landmarks[i].y, avg_landmarks[i].z = x, y, z
         self.last_landmarks = avg_landmarks
-        
         if self.last_landmarks:
-            h, w, _ = fr.shape; lms_px = {i: (lm.x*w, lm.y*h) for i, lm in enumerate(self.last_landmarks)}
+            h, w, _ = fr.shape
+            try:
+                skin_tone_str, _ = get_skin_tone_from_landmarks(fr, self.last_landmarks)
+                self.skin_tone_var.set(skin_tone_str)
+            except Exception: self.skin_tone_var.set("N/A")
+            if self.selected_eye_color: comp = apply_eye_color(comp, self.last_landmarks, self.selected_eye_color)
             if self.selected_lipstick_color: comp = apply_lipstick(comp, self.last_landmarks, self.selected_lipstick_color)
+            lms_px = {i: (lm.x*w, lm.y*h) for i, lm in enumerate(self.last_landmarks)}
             for name, img in self.selected_accessories.items():
                 if img is not None:
                     ovr = self.accessory_overrides.get(name, {}); p = self.get_placement_from_name(name)
@@ -379,15 +375,14 @@ class FaceFitUltraApp(tk.Tk):
         for cat, kw_list in ACCESSORY_KEYWORDS.items():
             if any(k in nl for k in kw_list):
                 if cat == 'Glasses / Sunglasses': return 'glasses'
-                if cat == 'Hats / Headwear': return 'hat'
-                if cat == 'Earrings / Jewelry': return 'earrings'
-                if cat == 'Necklaces / Pendants': return 'necklace'
+                elif cat == 'Hats / Headwear': return 'hat'
+                elif cat == 'Earrings / Jewelry': return 'earrings'
+                elif cat == 'Necklaces / Pendants': return 'necklace'
         return 'default'
     def save_favorite_look(self):
         if self.last_frame_composed is not None:
             os.makedirs(FAVORITES_DIR, exist_ok=True); fname = f"Favorites/Look_{time.strftime('%Y%m%d_%H%M%S')}.png"; cv2.imwrite(fname, self.last_frame_composed); messagebox.showinfo("Saved", f"Saved to {fname}")
-            selected_tab_id = self.right_nb.select()
-            if selected_tab_id and self.right_nb.tab(selected_tab_id, "text") == "💖 Favorites": self._load_favorites_gallery()
+            if self.right_nb.tab(self.right_nb.select(), "text") == "💖 Favorites": self._load_favorites_gallery()
         else: messagebox.showinfo("Error", "No image to save.")
     def _on_accessory_select(self, event=None):
         sel = self.acc_lb.curselection();
@@ -400,17 +395,27 @@ class FaceFitUltraApp(tk.Tk):
                     self.selected_accessories[self.selected_accessory_name] = p
                     self.accessory_overrides.setdefault(self.selected_accessory_name, {'scale_factor': 1.0, 'rotation': 0.0, 'x_offset': 0.0, 'y_offset': 0.0})
         except Exception as e: print("Error loading accessory", e)
-        self._update_sliders(self.selected_accessory_name)
-        if not self.live_streaming and self.last_frame_raw is not None: self.refresh_static_image()
+        self._update_sliders(self.selected_accessory_name); self.refresh_static_image_if_needed()
     def _update_sliders(self, name):
         ovr = self.accessory_overrides.get(name, {}); self.scale_var.set(ovr.get('scale_factor', 1.0)); self.rot_var.set(ovr.get('rotation', 0.0)); self.x_var.set(ovr.get('x_offset', 0.0)); self.y_var.set(ovr.get('y_offset', 0.0))
     def run_gemini_analysis(self):
-        # This function and its helpers are complex but self-contained and correct.
-        pass
-    def _generate_and_display_report(self, pil_img, face_shape, gender, skin_tone):
-        pass
-    def _on_keyword_click(self, event):
-        pass
+        if self.last_frame_raw is None or self.last_landmarks is None: messagebox.showerror("Error", "Please start the camera or load a photo first."); return
+        current_frame_bgr = self.last_frame_raw.copy(); h, w, _ = current_frame_bgr.shape
+        face_shape = get_face_shape_combined(self.last_landmarks, w, h); gender = self.gender_var.get()
+        detected_skin_tone = self.skin_tone_var.get() if self.skin_tone_var.get() != "N/A" else "N/A (Detection failed)"
+        extra_prompt = self.personality_var.get()
+        try: pil_img = Image.fromarray(cv2.cvtColor(current_frame_bgr, cv2.COLOR_BGR2RGB))
+        except Exception as e: messagebox.showerror("Error", f"Could not prepare image for analysis: {e}"); return
+        self.rep_txt.delete(1.0, tk.END); self.rep_txt.insert(tk.END, "🚀 Generating your AI Style Profile...\n\nPlease wait, this may take a moment...")
+        self.right_nb.select(self.tab_ai)
+        threading.Thread(target=self._generate_and_display_report, args=(pil_img, face_shape, gender, detected_skin_tone, extra_prompt), daemon=True).start()
+    def _generate_and_display_report(self, pil_img, face_shape, gender, skin_tone, extra_prompt):
+        try:
+            report = get_gemini_vision_report(GEMINI_API_KEY, pil_img, face_shape, gender, skin_tone, extra_prompt) if GEMINI_API_KEY else "Error: GEMINI_API_KEY not found."
+            self.after(0, self._update_report_text, report)
+        except Exception as e: self.after(0, self._update_report_text, f"A critical error occurred:\n{e}\n\n{traceback.format_exc()}")
+    def _update_report_text(self, report): self.rep_txt.delete(1.0, tk.END); self.rep_txt.insert(tk.END, report)
+    def _on_keyword_click(self, event): pass
     def _load_accessories_list(self):
         self.accessory_categories = organize_accessories(); cats = list(self.accessory_categories.keys())
         self.cat_cb.config(values=["All"] + cats); self.cat_var.set("All"); self._load_accessories_by_category()
@@ -432,8 +437,7 @@ class FaceFitUltraApp(tk.Tk):
             h, w, _ = self.last_frame_composed.shape; pinned_resized = cv2.resize(self.pinned_image, (w // 2, h)); current_resized = cv2.resize(self.last_frame_composed, (w // 2, h))
             comparison_image = np.hstack([pinned_resized, current_resized]); cv2.imshow("A/B Comparison (Pinned vs. Current)", comparison_image); cv2.waitKey(1)
         else: messagebox.showerror("Error", "No current look to compare.")
-    def _export_report(self):
-        pass
+    def _export_report(self): pass
     def _load_favorites_gallery(self):
         for w in self.scrollable_fav_frame.winfo_children(): w.destroy()
         favs = sorted(glob.glob(os.path.join(FAVORITES_DIR, "*.png")), reverse=True)
@@ -485,15 +489,14 @@ class FaceFitUltraApp(tk.Tk):
         try:
             x, y = widget.winfo_rootx() + 20, widget.winfo_rooty() + 20
             self._tooltip = tk.Toplevel(self); self._tooltip.wm_overrideredirect(True); self._tooltip.geometry(f"+{x}+{y}")
-            lbl = tk.Label(self._tooltip, text=text, bg="#ffffe0", relief="solid", borderwidth=1, padx=4, pady=2); lbl.pack()
+            lbl = tk.Label(self._tooltip, text=text, bg="#ffffe0", fg="#000000", relief="solid", borderwidth=1, padx=4, pady=2); lbl.pack()
         except Exception: pass
     def _hide_tooltip(self):
         try:
             if self._tooltip: self._tooltip.destroy(); self._tooltip = None
         except Exception: pass
     def _on_close(self):
-        try: self.stop_webcam()
-        except Exception: pass
+        self.stop_webcam()
         self.destroy()
 
 if __name__ == "__main__":
